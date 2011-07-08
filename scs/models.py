@@ -2,6 +2,8 @@ import shlex
 
 from subprocess import Popen, PIPE
 
+from celery import current_app as celery
+
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
@@ -47,11 +49,33 @@ class Node(models.Model):
     def __unicode__(self):
         return self.name
 
-    def start(self, multi="celeryd-multi"):
-        return _exec("%s start %s %s" % (multi, self.name, self.strargv))
+    def _action(self, action, multi="celeryd-multi"):
+        return _exec(" ".join((multi, action, "--suffix=' '",
+                               self.name, self.strargv)))
 
-    def stop(self, multi="celeryd-multi"):
-        return _exec("%s stop %s %s" % (multi, self.name, self.strargv))
+    def _query(self, cmd, **kwargs):
+        name = self.name
+        r = celery.control.broadcast(cmd, arguments=kwargs,
+                   destination=[name], reply=True)
+        if r:
+            for reply in r:
+                if name in reply:
+                    return reply[name]
+
+    def start(self, **kwargs):
+        return self._action("start", **kwargs)
+
+    def stop(self, **kwargs):
+        return self._action("stop", **kwargs)
+
+    def restart(self, **kwargs):
+        return self._action("restart", **kwargs)
+
+    def alive(self):
+        return True if self._query("ping") else False
+
+    def stats(self):
+        return self._query("stats")
 
     @property
     def strargv(self):
