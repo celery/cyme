@@ -1,0 +1,14 @@
+include AUTHORS
+include Changelog
+include LICENSE
+include MANIFEST.in
+include README
+include README.rst
+include setup.cfg
+recursive-include scs *.py
+recursive-include scs/templates *
+recursive-include tests *
+recursive-include requirements *.txt
+prune tests/*.pyc
+prune scs/*.pyc
+prune docs/.build
