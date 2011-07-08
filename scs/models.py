@@ -1,8 +1,19 @@
+import shlex
+
+from subprocess import Popen, PIPE
+
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
 from scs.managers import NodeManager, QueueManager
 from scs.utils import shellquote
+
+
+CWD = "/var/run/scs"
+
+
+def _exec(cmd, cwd=CWD):
+    return Popen(shlex.split(cmd), stdout=PIPE, cwd=cwd).communicate()[0]
 
 
 class Queue(models.Model):
@@ -36,6 +47,12 @@ class Node(models.Model):
     def __unicode__(self):
         return self.name
 
+    def start(self, multi="celeryd-multi"):
+        return _exec("%s start %s %s" % (multi, self.name, self.strargv))
+
+    def stop(self, multi="celeryd-multi"):
+        return _exec("%s stop %s %s" % (multi, self.name, self.strargv))
+
     @property
     def strargv(self):
         return " ".join("%s %s" % (k, shellquote(str(v)))
@@ -43,6 +60,5 @@ class Node(models.Model):
 
     @property
     def argv(self):
-        return (("-n", self.name),
-                ("-c", self.concurrency),
+        return (("-c", self.concurrency),
                 ("-Q", ",".join(q.name for q in self.queues.active())))
