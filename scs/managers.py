@@ -12,9 +12,14 @@ class NodeManager(ExtendedManager):
     def active(self):
         return self.filter(is_active=True)
 
+    def disabled(self):
+        return self.filter(is_active=False)
+
     def _maybe_queues(self, queues):
         acc = []
         Queue = self.Queue
+        if isinstance(queues, basestring):
+            queues = queues.split(",")
         for queue in queues:
             if not isinstance(queue, Queue):
                 queue, _ = Queue._default_manager.get_or_create(name=queue)
@@ -31,9 +36,17 @@ class NodeManager(ExtendedManager):
             node.save()
         return node
 
+    def modify(self, nodename, queues, concurrency):
+        node = self.get(name=nodename)
+        node.queues = self._maybe_queues(queues)
+        node.concurrency = concurrency
+        node.save()
+        return node
+
     def remove(self, nodename):
-        self.get(name=nodename).delete()
-        # ... stop node
+        node = self.get(name=nodename)
+        node.delete()
+        return node
 
     def add_queue(self, name, nodenames=None):
         nodenames = maybe_list(nodenames)
