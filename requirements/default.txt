@@ -1,2 +1,5 @@
 django
 django-celery
+django-piston
+eventlet
+dnspython

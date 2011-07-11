@@ -119,6 +119,9 @@ setup(
     install_requires=[
         "Django",
         "django-celery",
+        "django-piston",
+        "eventlet",
+        "dnspython",
     ],
     cmdclass={"test": RunTests,
               "citest": CIRunTests},
