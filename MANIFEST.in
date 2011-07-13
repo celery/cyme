@@ -7,6 +7,7 @@ include README.rst
 include setup.cfg
 recursive-include scs *.py
 recursive-include scs/templates *
+recursive-include scs/media *
 recursive-include tests *
 recursive-include requirements *.txt
 prune tests/*.pyc

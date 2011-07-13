@@ -1,3 +1,4 @@
+from anyjson import serialize
 from celery.utils import gen_unique_id
 
 from django.db import models
@@ -26,20 +27,24 @@ class NodeManager(ExtendedManager):
             acc.append(queue)
         return acc
 
-    def add(self, nodename=None, queues=None, concurrency=None):
+    def add(self, nodename=None, queues=None, max_concurrency=1,
+            min_concurrency=1):
         nodename = nodename or gen_unique_id()
 
         node = self.create(name=nodename or gen_unique_id(),
-                           concurrency=concurrency)
+                           max_concurrency=max_concurrency,
+                           min_concurrency=min_concurrency)
         if queues:
             node.queues = self._maybe_queues(queues)
             node.save()
         return node
 
-    def modify(self, nodename, queues, concurrency):
+    def modify(self, nodename, queues, max_concurrency=None,
+            min_concurrency=None):
         node = self.get(name=nodename)
         node.queues = self._maybe_queues(queues)
-        node.concurrency = concurrency
+        node.max_concurrency = max_concurrency
+        node.min_concurrency = min_concurrency
         node.save()
         return node
 
@@ -48,16 +53,29 @@ class NodeManager(ExtendedManager):
         node.delete()
         return node
 
-    def add_queue(self, name, nodenames=None):
+    def enable(self, nodename):
+        node = self.get(name=nodename)
+        node.enable()
+        return node
+
+    def disable(self, nodename):
+        node = self.get(name=nodename)
+        node.disable()
+        return node
+
+    def add_queue(self, name, nodenames=None, exchange=None,
+            exchange_type=None, routing_key=None, **options):
         nodenames = maybe_list(nodenames)
         queue, _ = self.queues.update_or_create(name=name,
-                        defaults={"is_default": nodenames is None})
+                defaults={"exchange": exchange,
+                          "exchange_type": exchange_type,
+                          "routing_key": routing_key,
+                          "options": serialize(options)})
         if nodenames:
             self._add_queue_to_nodes(queue, name__in=nodenames)
         else:
             self._remove_queue_from_nodes(queue)
-            queue.is_default = True
-            queue.save()
+            self._add_queue_to_nodes(queue)
 
     def remove_queue(self, name, nodenames=None):
         nodenames = maybe_list(nodenames)
@@ -65,9 +83,7 @@ class NodeManager(ExtendedManager):
         if nodenames:
             self._remove_queue_from_nodes(queue, name__in=nodenames)
         else:
-            queue.is_default = False
-            queue.save()
-        # ... broadcast cancel queue event
+            self._remove_queue_from_nodes(queue)
 
     def _remove_queue_from_nodes(self, queue, **query):
         for node in self.filter(**query).iterator():
@@ -92,3 +108,12 @@ class QueueManager(ExtendedManager):
 
     def active(self):
         return self.filter(is_active=True)
+
+    def add(self, name, exchange=None, exchange_type=None,
+            routing_key=None, **options):
+        options = serialize(options) if options else None
+        return self.create(name=name, exchange=exchange,
+                           exchange_type=exchange_type,
+                           routing_key=routing_key,
+                           options=options)
+

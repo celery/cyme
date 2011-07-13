@@ -20,3 +20,12 @@ DATABASES = {
 
 SITE_ID = 1
 DEBUG = True
+
+
+BROKER_POOL_LIMIT = 10
+TEMPLATE_LOADERS = (
+    ('django.template.loaders.cached.Loader', (
+        'django.template.loaders.filesystem.Loader',
+        'django.template.loaders.app_directories.Loader',
+    )),
+)

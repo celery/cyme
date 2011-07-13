@@ -19,13 +19,21 @@ class CsrfExemptResource(Resource):
 
 
 node_resource = CsrfExemptResource(handler=api.NodeHandler)
+queue_resource = CsrfExemptResource(handler=api.QueueHandler)
 
 
 urlpatterns = patterns('',
     (r'^admin/doc/', include('django.contrib.admindocs.urls')),
 
     (r'^admin/', include(admin.site.urls)),
+    (r'^node/create/', views.create_node),
+    (r'^node/(?P<nodename>[^/]+)/enable', views.enable_node),
+    (r'^node/(?P<nodename>[^/]+)/disable', views.disable_node),
+    (r'^node/(?P<nodename>[^/]+)/restart', views.restart_node),
+    (r'^node/(?P<nodename>[^/]+)/delete', views.delete_node),
     (r'^api/node/(?P<nodename>[^/]+)/', node_resource),
     (r'^api/node/', node_resource),
+    (r'^api/queue/(?P<name>[^/]+)/', queue_resource),
+    (r'^api/queue/', queue_resource),
     (r'^/?$', views.index),
 )
