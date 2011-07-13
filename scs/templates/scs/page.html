@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="utf-8">
+  
+  <title>Celery: Python Distributed Tasks | HOME</title>
+  <link href="static/main.css" rel="stylesheet" type="text/css">
+  <link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon">
+
+  <style>
+    body, div, header, ol, ul, li, p, h1, h2, h3, a, img {
+    	margin: 0; padding: 0; border: 0; vertical-align: baseline; list-style: none;
+    }
+    
+    body {
+      background: #fafafa 50% 0 repeat;
+      font: 13px/24px "Open Sans", Arial, sans-serif;
+      color:  #444;
+    }
+    
+    .container {
+      margin:  0 auto;
+      width:  800px;
+      box-shadow:  1px 0 rgba(0,0,0,0.1),  2px 0 rgba(0,0,0,0.05),  4px 0 rgba(0,0,0,0.04),
+                  -1px 0 rgba(0,0,0,0.1), -2px 0 rgba(0,0,0,0.05), -4px 0 rgba(0,0,0,0.04); 
+      -webkit-box-shadow:  1px 0 rgba(0,0,0,0.1),  2px 0 rgba(0,0,0,0.05),  4px 0 rgba(0,0,0,0.04),
+                          -1px 0 rgba(0,0,0,0.1), -2px 0 rgba(0,0,0,0.05), -4px 0 rgba(0,0,0,0.04); 
+    }
+        
+    a {
+      font:  inherit;
+      color:  #000;
+      text-decoration: none;
+    }
+    
+    a:hover {
+      text-decoration: underline;
+    }
+
+    h1 {
+      font-size: 1.8em;
+    }
+
+    h2 {
+      font:  inherit;
+      font-size:  1.2em;
+      color:  #000;
+      text-transform: uppercase;
+    }
+
+    .contentbox {
+      text-align: left;
+      margin: 10px 30px;
+      display: inline-block;
+      vertical-align: top;
+    }
+
+
+    /* Ze wonderful navigation bar */
+    #nav {
+      background: #e6e6e6;
+      border-bottom:  1px solid #ccc;
+      text-align: right;
+      letter-spacing: -4px;
+    }
+    
+    #nav .container {
+      background: #eee;
+    }
+    
+    #nav li {
+      display:  inline-block;
+      letter-spacing: normal;
+    }
+    
+    #nav li a {
+      color:  #666;
+      text-decoration: none;
+      text-transform: uppercase;
+      display: block;
+      padding:  10px;
+      background-color: rgba(255,255,255,0);
+      border-left:  1px solid #ccc;
+      transition: 0.25s;
+      -o-transition: 0.25s;
+      -webkit-transition: 0.25s;
+    }
+    
+    #nav li#home {
+      float:  left;
+    }
+    
+    #nav li#home a {
+      border-left:  0;
+      border-right:  1px solid #ccc;
+      padding:  0 10px 0 10px;
+    }
+    
+    #nav li a:hover {
+      background-color: #fff;
+    }
+
+    /* Ze wonderful splash area */
+    #splash {
+      background: #e8f0da;
+      border-bottom:  1px solid #ccc;
+      color: #454d41;
+    }
+    
+    #splash .container {
+      background: transparent url(splash.jpg) 0 0 no-repeat;
+      height:  275px;
+    }
+    
+    #splash h1 {
+      padding:  80px 70px 10px 250px;
+    }
+    
+    #splash p {
+      padding:  0 70px 5px 250px;
+    }
+    
+    #splash a {
+      color:  #000;
+    }
+
+    /* Ze content area */
+    #content {
+      text-align: left;
+      background: #fff;
+      padding: 25px 0;
+    }
+    
+    #getStarted {
+      background: #f6faee;
+      border-radius: 1px;
+      box-shadow: 0 0 0 10px #f6faee;
+    }
+
+    /* Ze feeds area */
+    #feeds.container {
+      text-align: left;
+      background: #fff;
+      border-radius:  0 0 2px 2px;
+      box-shadow:  1px 0 rgba(0,0,0,0.1),  2px 0 rgba(0,0,0,0.05),  4px 0 rgba(0,0,0,0.04),
+                  -1px 0 rgba(0,0,0,0.1), -2px 0 rgba(0,0,0,0.05), -4px 0 rgba(0,0,0,0.04),
+                   0  1px 1px rgba(0,0,0,0.1), 0   2px 2px rgba(0,0,0,0.05), 0  4px 4px rgba(0,0,0,0.04);
+      -webkit-box-shadow:  1px 0 rgba(0,0,0,0.1),  2px 0 rgba(0,0,0,0.05),  4px 0 rgba(0,0,0,0.04),
+                          -1px 0 rgba(0,0,0,0.1), -2px 0 rgba(0,0,0,0.05), -4px 0 rgba(0,0,0,0.04),
+                           0  1px 1px rgba(0,0,0,0.1), 0 2px 2px rgba(0,0,0,0.05), 0  4px 4px rgba(0,0,0,0.04); 
+    }
+
+    #feeds li {
+      margin-bottom:  1em;
+      line-height:  1.4em;
+    }
+
+    #feeds em {
+      display:  block;
+      font-style: inherit;
+    }
+
+
+    /* Ze footer area */
+    #footer {
+      color:  #888; 
+      box-shadow:  none;
+      -wekbit-box-shadow: none;
+      padding:  20px 0;
+    }
+
+    #footer > * {
+      display: inline-block;
+      width:  358px;
+      margin:  0 20px;
+      vertical-align: top;
+    }
+
+    table {
+        border-collapse: collapse;
+        border-color: #ccc;
+    }
+
+    td, th {
+        font-size: 11px;
+        line-height: 13px;
+        border-bottom: 1px solid #eee;
+        vertical-align: top;
+        padding: 5px;
+        font-family: "Lucida Grande", Verdana, Arial, sans-serif;
+    }
+
+    th {
+        text-align: left;
+        font-size: 12px;
+        font-weight: bold;
+        background: #ccc;
+    }
+  </style>
+
+</head>
+
+<body>
+  <div id="nav">
+    <ul class="container">
+      <li id="home"><a href="/"><img src="static/logo.png" alt="">Agent</a></li>
+      <li><a href="/nodes">Instances</a></li>
+      <li><a href="/queues#">Queues</a></li>
+    </ul>
+  </div>
+
+  <div id="content" class="container">
+      {% block content %}
+      {% endblock %}
+  </div>
+
+<div class="contentbox">
+    &nbsp;
+</div>
+<div id="footer" class="container">
+ <div id="credits"> 
+      <p>Design by Jan Henrik Helmers | <a href="http://www.helmersworks.com">www.helmersworks.com</a></p> 
+    </div> 
+</div>
+
+
+</body></html>
