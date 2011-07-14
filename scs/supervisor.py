@@ -2,15 +2,12 @@ import eventlet
 import logging
 
 from collections import defaultdict
-from time import sleep, time
 
 from celery.datastructures import TokenBucket
 from celery.utils.timeutils import rate
 from eventlet.queue import LightQueue
 from eventlet.event import Event
 from kombu.syn import blocking
-
-from django.db.models import signals
 
 from scs.models import Node
 from scs.thread import gThread
@@ -50,10 +47,11 @@ class Supervisor(gThread):
 
     def run(self):
         queue = self.queue
+        debug = self.debug
         self.info("started...")
         while 1:
-            nodes, event, action = self.queue.get()
-            self.debug("wake-up")
+            nodes, event, action = queue.get()
+            debug("wake-up")
             for node in nodes:
                 action(node)
             event.send(True)
@@ -124,7 +122,7 @@ class Supervisor(gThread):
         max, min = node.max_concurrency, node.min_concurrency
         try:
             current = node.stats()["autoscaler"]
-        except TypeError, KeyError:
+        except (TypeError, KeyError):
             return
         if max != current["max"] or min != current["min"]:
             self.warn("%s: node.set_autoscale max=%r min=%r" % (

@@ -31,4 +31,3 @@ class gThread(object):
 
     def _log(self, severity, t):
         return self.logger.log(severity, "%s: %s" % (self.name, t, ))
-

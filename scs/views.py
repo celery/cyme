@@ -2,7 +2,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import render_to_response
 from django.template import RequestContext
 
-from scs.models import Node, Queue
+from scs.models import Node
 from scs.agent import cluster
 
 

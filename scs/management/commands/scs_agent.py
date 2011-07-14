@@ -4,7 +4,6 @@ import eventlet
 import logging
 import os
 import sys
-import threading
 
 from optparse import make_option as Option
 
@@ -42,7 +41,6 @@ class HttpServer(gThread):
 
     def get_app(self):
         return SCSMediaHandler(AdminMediaHandler(djwsgi.WSGIHandler()))
-
 
 
 class Other(gThread):
@@ -112,7 +110,6 @@ class Command(CeleryCommand):
                                         if isinstance(l, basestring))))
         kwargs["loglevel"] = loglevel
         Agent(*args, **kwargs).start().wait()
-
 
     def die(self, msg, exitcode=1):
         sys.stderr.write("Error: %s\n" % (msg, ))

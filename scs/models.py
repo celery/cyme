@@ -151,6 +151,7 @@ class Node(models.Model):
     def strargv(self):
         return " ".join("%s %s" % (k, shellquote(str(v)))
                             for k, v in self.argtuple if v)
+
     @property
     def argv(self):
         acc = []

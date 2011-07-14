@@ -3,15 +3,11 @@ from __future__ import with_statement
 import eventlet
 eventlet.monkey_patch()
 
-import os
 import sys
 import getpass
 
-from functools import wraps
-
 from scs import settings as default_settings
 from scs.utils import imerge_settings
-from threading import RLock
 
 from django.conf import settings
 from django.core import management

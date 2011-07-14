@@ -1,8 +1,6 @@
 from anyjson import serialize
 from celery.utils import gen_unique_id
 
-from django.db import models
-
 from djcelery.managers import ExtendedManager
 
 from scs.utils import maybe_list
@@ -116,4 +114,3 @@ class QueueManager(ExtendedManager):
                            exchange_type=exchange_type,
                            routing_key=routing_key,
                            options=options)
-
