@@ -32,6 +32,14 @@
             ]
         </td>
     </tr>
+    {% if node.queues.active %}
+        <tr>
+            <td>&nbsp;</td>
+            <td><small><small>{% for queue in node.queues.active %}
+                                        {{ queue.name }},&nbsp;
+                              {% endfor %}</small></small></td>
+        </tr>
+    {% endif %}
     {% endfor %}
     </table>
 </p>

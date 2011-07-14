@@ -1,0 +1,10 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {% trans 'SCS Agent' %}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><img src="/static/logo.png" alt="{% trans 'SCS Agent' %}" /></h1>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

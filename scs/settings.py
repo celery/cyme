@@ -2,9 +2,9 @@ INSTALLED_APPS = ("django.contrib.auth",
                   "django.contrib.contenttypes",
                   "django.contrib.sessions",
                   "django.contrib.sites",
+                  "scs",
                   "django.contrib.admin",
-                  "django.contrib.admindocs",
-                  "scs")
+                  "django.contrib.admindocs")
 
 ROOT_URLCONF = "scs.urls"
 DATABASES = {

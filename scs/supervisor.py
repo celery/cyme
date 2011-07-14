@@ -17,7 +17,7 @@ logger = logging.getLogger("Supervisor")
 
 
 class Supervisor(gThread):
-    restart_max_rate = "10/m"
+    restart_max_rate = "1/m"
 
     def __init__(self, queue=None):
         if queue is None:

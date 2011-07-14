@@ -1,5 +1,35 @@
+import logging
+
+from celery import current_app as celery
+
+from scs.httpd import HttpServer
 from scs.models import Node
 from scs.supervisor import supervisor
+from scs.thread import gThread
+
+
+class Agent(gThread):
+
+    def __init__(self, addrport="", loglevel=logging.INFO, logfile=None,
+            without_httpd=False, **kwargs):
+        self.addrport = addrport
+        self.without_httpd = without_httpd
+        self.logfile = logfile
+        self.loglevel = loglevel
+        self.threads = []
+        self.httpd = HttpServer(addrport) if not self.without_httpd else None
+
+        components = [self.httpd, supervisor]
+        self.components = list(filter(None, components))
+        super(Agent, self).__init__()
+
+    def run(self):
+        celery.log.setup_logging_subsystem(loglevel=self.loglevel,
+                                           logfile=self.logfile)
+        threads = []
+        for component in self.components:
+            threads.append(component.start())
+        threads[-1].wait()
 
 
 class Cluster(object):

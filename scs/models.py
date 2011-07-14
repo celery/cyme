@@ -17,7 +17,6 @@ from django.utils.translation import ugettext_lazy as _
 from scs.managers import NodeManager, QueueManager
 from scs.utils import shellquote
 
-
 CWD = "/var/run/scs"
 
 
@@ -26,13 +25,14 @@ class Queue(models.Model):
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
     exchange = models.CharField(_(u"exchange"), max_length=128,
-                                default=None, null=True)
+                                default=None, null=True, blank=True)
     exchange_type = models.CharField(_(u"exchange type"), max_length=128,
-                                     default=None, null=True)
+                                     default=None, null=True, blank=True)
     routing_key = models.CharField(_(u"routing key"), max_length=128,
-                                   default=None, null=True)
-    is_enabled = models.BooleanField(_("is enabled"), default=True)
-    options = models.TextField(null=True)
+                                   default=None, null=True, blank=True)
+    is_enabled = models.BooleanField(_(u"is enabled"), default=True)
+    created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
+    options = models.TextField(null=True, blank=True)
 
     class Meta:
         verbose_name = _(u"queue")
@@ -49,10 +49,11 @@ class Node(models.Model):
     cwd = CWD
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
-    queues = models.ManyToManyField(Queue, null=True)
+    queues = models.ManyToManyField(Queue, null=True, blank=True)
     max_concurrency = models.IntegerField(_(u"max concurrency"), default=1)
     min_concurrency = models.IntegerField(_(u"min concurrency"), default=1)
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
+    created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
 
     class Meta:
         verbose_name = _(u"node")
