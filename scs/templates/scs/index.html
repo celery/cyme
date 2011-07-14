@@ -22,7 +22,7 @@
             <strong>{{ node.min_concurrency }}</strong>
         </td>
         <td align="left">[
-            {% if node.is_active %}
+            {% if node.is_enabled %}
             <a href="/node/{{ node.name }}/disable/?next={{ next }}">Disable</a>
             | <a href="/node/{{ node.name }}/restart/?next={{ next }}">Restart</a>
             {% else %}

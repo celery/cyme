@@ -31,7 +31,7 @@ class Queue(models.Model):
                                      default=None, null=True)
     routing_key = models.CharField(_(u"routing key"), max_length=128,
                                    default=None, null=True)
-    is_active = models.BooleanField(_("is active"), default=True)
+    is_enabled = models.BooleanField(_("is enabled"), default=True)
     options = models.TextField(null=True)
 
     class Meta:
@@ -50,9 +50,9 @@ class Node(models.Model):
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
     queues = models.ManyToManyField(Queue, null=True)
-    max_concurrency = models.IntegerField(default=1)
-    min_concurrency = models.IntegerField(default=1)
-    is_active = models.BooleanField(default=True)
+    max_concurrency = models.IntegerField(_(u"max concurrency"), default=1)
+    min_concurrency = models.IntegerField(_(u"min concurrency"), default=1)
+    is_enabled = models.BooleanField(_(u"is enabled"), default=True)
 
     class Meta:
         verbose_name = _(u"node")
@@ -62,11 +62,11 @@ class Node(models.Model):
         return self.name
 
     def enable(self):
-        self.is_active = True
+        self.is_enabled = True
         self.save()
 
     def disable(self):
-        self.is_active = False
+        self.is_enabled = False
         self.save()
 
     def start(self, **kwargs):

@@ -97,7 +97,7 @@ class Supervisor(gThread):
         blocking(node.stop)
 
     def _do_verify_node(self, node):
-        if node.is_active and node.pk:
+        if node.is_enabled and node.pk:
             if not node.alive():
                 self._do_restart_node(node, ratelimit=True)
             self.verify_node_processes(node)
@@ -107,7 +107,7 @@ class Supervisor(gThread):
                 self._do_stop_node(node)
 
     def verify_node_queues(self, node):
-        queues = set(queue.name for queue in node.queues.active())
+        queues = set(queue.name for queue in node.queues.enabled())
         consuming_from = set(node.consuming_from().keys())
 
         for queue in consuming_from ^ queues:

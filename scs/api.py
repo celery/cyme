@@ -33,7 +33,7 @@ class QueueHandler(BaseHandler):
 
 class NodeHandler(BaseHandler):
     allowed_methods = ("GET", "POST", "PUT", "DELETE")
-    fields = ("name", "max_concurrency", "min_concurrency", "is_active",
+    fields = ("name", "max_concurrency", "min_concurrency", "is_enabled",
               ("queues", QueueHandler.fields))
     exclude = ("id", )
     model = Node

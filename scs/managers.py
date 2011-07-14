@@ -10,11 +10,11 @@ from scs.utils import maybe_list
 
 class NodeManager(ExtendedManager):
 
-    def active(self):
-        return self.filter(is_active=True)
+    def enabled(self):
+        return self.filter(is_enabled=True)
 
     def disabled(self):
-        return self.filter(is_active=False)
+        return self.filter(is_enabled=False)
 
     def _maybe_queues(self, queues):
         acc = []
@@ -106,8 +106,8 @@ class NodeManager(ExtendedManager):
 
 class QueueManager(ExtendedManager):
 
-    def active(self):
-        return self.filter(is_active=True)
+    def enabled(self):
+        return self.filter(is_enabled=True)
 
     def add(self, name, exchange=None, exchange_type=None,
             routing_key=None, **options):
