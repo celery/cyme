@@ -1,7 +1,9 @@
 import logging
 
 from celery import current_app as celery
+from kombu.utils import gen_unique_id
 
+from scs.amqp import AMQAgent
 from scs.httpd import HttpServer
 from scs.models import Node
 from scs.supervisor import supervisor
@@ -12,14 +14,16 @@ class Agent(gThread):
 
     def __init__(self, addrport="", loglevel=logging.INFO, logfile=None,
             without_httpd=False, **kwargs):
+        self.id = gen_unique_id()
         self.addrport = addrport
         self.without_httpd = without_httpd
         self.logfile = logfile
         self.loglevel = loglevel
         self.threads = []
         self.httpd = HttpServer(addrport) if not self.without_httpd else None
+        self.amq_agent = AMQAgent(self.id)
 
-        components = [self.httpd, supervisor]
+        components = [self.httpd, supervisor, self.amq_agent]
         self.components = list(filter(None, components))
         super(Agent, self).__init__()
 
