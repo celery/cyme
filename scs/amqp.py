@@ -29,7 +29,6 @@ class AMQAgent(gThread):
                             auto_delete=True)
         super(AMQAgent, self).__init__()
 
-
     def on_create(self, body, message):
         print("GOT CREATE MESSAGE")
         message.ack()

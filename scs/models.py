@@ -154,13 +154,11 @@ class Node(models.Model):
         pidfile = self.pidfile.replace("%n", self.name)
         return platforms.PIDFile(pidfile).read_pid()
 
-
     def _action(self, action, multi="celeryd-multi"):
         """Execute :program:`celeryd-multi` command."""
         with self.mutex:
             argv = ([multi, action, '--suffix=""', "--no-color", self.name]
                   + list(self.argv) + list(self.default_args))
-            print("ARGV: %r" %(argv, ))
             return self.multi.execute_from_commandline(argv)
 
     def _query(self, cmd, **kwargs):
