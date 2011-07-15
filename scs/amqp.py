@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from __future__ import with_statement
 
 from functools import partial
@@ -24,6 +25,7 @@ class AMQAgent(gThread):
                             Exchange(self.query_exchange, "fanout",
                                      auto_delete=True),
                             auto_delete=True)
+        super(AMQAgent, self).__init__()
 
 
     def on_create(self, body, message):
@@ -34,12 +36,18 @@ class AMQAgent(gThread):
         print("GOT QUERY MESSAGE")
         message.ack()
 
+    def on_connection_error(self, exc, interval):
+        self.error("Broker connection error: %r. "
+                   "Trying again in %s seconds." % (exc, interval, ))
+
     def run(self):
-        with celery.pool.acquire(block=True) as connection:
-            with connection.channel() as channel:
+        with celery.broker_connection() as conn:
+            conn.ensure_connection(self.on_connection_error,
+                                   celery.conf.BROKER_CONNECTION_MAX_RETRIES)
+            with conn.channel() as channel:
                 C = partial(Consumer, channel)
                 consumers = [C(self._create, callbacks=[self.on_create]),
                              C(self._query, callbacks=[self.on_query])]
                 [consumer.consume() for consumer in consumers]
                 while 1:
-                    connection.drain_events()
+                    conn.drain_events()
