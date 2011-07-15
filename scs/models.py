@@ -160,6 +160,7 @@ class Node(models.Model):
         with self.mutex:
             argv = ([multi, action, '--suffix=""', "--no-color", self.name]
                   + list(self.argv) + list(self.default_args))
+            print("ARGV: %r" %(argv, ))
             return self.multi.execute_from_commandline(argv)
 
     def _query(self, cmd, **kwargs):
@@ -188,7 +189,9 @@ class Node(models.Model):
 
     @cached_property
     def multi(self):
-        return MultiTool()
+        env = os.environ.copy()
+        env.pop("CELERY_LOADER", None)
+        return MultiTool(env=env)
 
     @property
     def direct_queue(self):

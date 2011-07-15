@@ -13,15 +13,16 @@ from scs.thread import gThread
 class Agent(gThread):
 
     def __init__(self, addrport="", loglevel=logging.INFO, logfile=None,
-            without_httpd=False, **kwargs):
+            without_httpd=False, without_amqp=False, **kwargs):
         self.id = gen_unique_id()
         self.addrport = addrport
         self.without_httpd = without_httpd
+        self.without_amqp = without_amqp
         self.logfile = logfile
         self.loglevel = loglevel
         self.threads = []
         self.httpd = HttpServer(addrport) if not self.without_httpd else None
-        self.amq_agent = AMQAgent(self.id)
+        self.amq_agent = AMQAgent(self.id) if not self.without_amqp else None
 
         components = [self.httpd, supervisor, self.amq_agent]
         self.components = list(filter(None, components))

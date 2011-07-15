@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 from __future__ import with_statement
 
+import socket
+
 from functools import partial
 
 from celery import current_app as celery
@@ -44,10 +46,16 @@ class AMQAgent(gThread):
         with celery.broker_connection() as conn:
             conn.ensure_connection(self.on_connection_error,
                                    celery.conf.BROKER_CONNECTION_MAX_RETRIES)
+            self.info("Connected to %s" % (conn.as_uri(), ))
             with conn.channel() as channel:
                 C = partial(Consumer, channel)
                 consumers = [C(self._create, callbacks=[self.on_create]),
                              C(self._query, callbacks=[self.on_query])]
                 [consumer.consume() for consumer in consumers]
                 while 1:
-                    conn.drain_events()
+                    try:
+                        conn.drain_events(timeout=1)
+                    except socket.timeout:
+                        pass
+                    except socket.error:
+                        raise
