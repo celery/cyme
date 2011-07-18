@@ -13,6 +13,11 @@ from scs.agent import Agent
 class Command(CeleryCommand):
     args = '[optional port number, or ipaddr:port]'
     option_list = CeleryCommand.option_list + (
+        Option("-i", "--id",
+               default=None,
+               action="store",
+               dest="id",
+               help="Set explicit agent id."),
         Option("--without-httpd",
                default=False,
                action="store_true",

@@ -12,17 +12,17 @@ from scs.thread import gThread
 
 class Agent(gThread):
 
-    def __init__(self, addrport="", loglevel=logging.INFO, logfile=None,
-            without_httpd=False, without_amqp=False, **kwargs):
-        self.id = gen_unique_id()
+    def __init__(self, addrport="", id=None, loglevel=logging.INFO,
+            logfile=None, without_httpd=False, without_amqp=False,
+            **kwargs):
+        self.id = id or gen_unique_id()
         self.addrport = addrport
         self.without_httpd = without_httpd
         self.without_amqp = without_amqp
         self.logfile = logfile
         self.loglevel = loglevel
-        self.threads = []
-        self.httpd = HttpServer(addrport) if not self.without_httpd else None
-        self.amq_agent = AMQAgent(self.id) if not self.without_amqp else None
+        self.httpd = HttpServer(addrport)  if not self.without_httpd else None
+        self.amq_agent = AMQAgent(self.id) if not self.without_amqp  else None
 
         components = [self.httpd, supervisor, self.amq_agent]
         self.components = list(filter(None, components))
@@ -31,9 +31,12 @@ class Agent(gThread):
     def run(self):
         celery.log.setup_logging_subsystem(loglevel=self.loglevel,
                                            logfile=self.logfile)
+        self.info("Starting with id %r" % (self.id, ))
         threads = []
         for component in self.components:
             threads.append(component.start())
+            self.debug("Started %s thread" % (
+                component.__class__.__name__, ))
         threads[-1].wait()
 
 
