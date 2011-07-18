@@ -1,8 +1,10 @@
 import eventlet
 import logging
+import sys
 
 from collections import defaultdict
 
+from celery import current_app as celery
 from celery.datastructures import TokenBucket
 from celery.utils.timeutils import rate
 from eventlet.queue import LightQueue
@@ -16,6 +18,27 @@ from scs.thread import gThread
 logger = logging.getLogger("Supervisor")
 
 
+def insured(fun, *args, **kwargs):
+
+    with celery.pool.acquire(block=True) as conn:
+        if not getattr(conn, "_publisher_chan", None):
+            conn._publisher_chan = conn.channel()
+        current_chan = [conn._publisher_chan]
+
+        def errback(exc, interval):
+            sys.stderr.write("Error while trying to broadcast %r: %r\n" % (
+                fun, exc))
+
+        class Revival(object):
+
+            def revive(self, channel):
+                current_chan[0] = conn._publisher_chan = channel
+
+        insured = conn.ensure(Revival(), fun, errback=errback)
+        return insured(*args, **dict(kwargs, connection=conn,
+                                             channel=current_chan[0]))
+
+
 class Supervisor(gThread):
     restart_max_rate = "1/m"
 
@@ -27,9 +50,8 @@ class Supervisor(gThread):
                                     rate(self.restart_max_rate)))
         super(Supervisor, self).__init__()
 
-    def start(self):
+    def before(self):
         self.start_periodic_update()
-        return super(Supervisor, self).start()
 
     def verify(self, nodes):
         return self._request(nodes, self._do_verify_node)
@@ -52,9 +74,15 @@ class Supervisor(gThread):
         while 1:
             nodes, event, action = queue.get()
             debug("wake-up")
-            for node in nodes:
-                action(node)
-            event.send(True)
+            try:
+                for node in nodes:
+                    try:
+                        action(node)
+                    except Exception, exc:
+                        self.error("Event caused exception: %r" % (exc, ),
+                                   exc_info=sys.exc_info())
+            finally:
+                event.send(True)
 
     def _request(self, nodes, action):
         event = Event()
@@ -66,7 +94,7 @@ class Supervisor(gThread):
         is_alive = False
         for i in (0.1, 0.5, 1, 1, 1, 1):
             self.info("%s pingWithTimeout: %s" % (node, i))
-            if node.responds_to_ping(timeout=i):
+            if insured(node.responds_to_ping, timeout=i):
                 is_alive = True
                 break
         if is_alive:
@@ -96,12 +124,12 @@ class Supervisor(gThread):
 
     def _do_verify_node(self, node):
         if node.is_enabled and node.pk:
-            if not node.alive():
+            if not insured(node.alive):
                 self._do_restart_node(node, ratelimit=True)
             self.verify_node_processes(node)
             self.verify_node_queues(node)
         else:
-            if node.alive():
+            if insured(node.alive):
                 self._do_stop_node(node)
 
     def verify_node_queues(self, node):
@@ -111,12 +139,12 @@ class Supervisor(gThread):
         for queue in consuming_from ^ queues:
             if queue in queues:
                 self.warn("%s: node.consume_from: %s" % (node, queue))
-                blocking(node.add_queue, queue)
+                blocking(insured, node.add_queue, queue)
             elif queue == node.direct_queue:
                 pass
             else:
                 self.warn("%s: node.cancel_consume: %s" % (node, queue))
-                blocking(node.cancel_queue, queue)
+                blocking(insured, node.cancel_queue, queue)
 
     def verify_node_processes(self, node):
         max, min = node.max_concurrency, node.min_concurrency
@@ -127,6 +155,5 @@ class Supervisor(gThread):
         if max != current["max"] or min != current["min"]:
             self.warn("%s: node.set_autoscale max=%r min=%r" % (
                 node, max, min))
-            blocking(node.autoscale, max, min)
-
+            blocking(insured, node.autoscale, max, min)
 supervisor = Supervisor()
