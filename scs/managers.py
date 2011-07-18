@@ -63,12 +63,13 @@ class NodeManager(ExtendedManager):
 
     def add_queue(self, name, nodenames=None, exchange=None,
             exchange_type=None, routing_key=None, **options):
+        options = serialize(options) if options else None
         nodenames = maybe_list(nodenames)
-        queue, _ = self.queues.update_or_create(name=name,
-                defaults={"exchange": exchange,
-                          "exchange_type": exchange_type,
-                          "routing_key": routing_key,
-                          "options": serialize(options)})
+        queue = self.queues.update_or_create(name=name,
+                    defaults={"exchange": exchange,
+                              "exchange_type": exchange_type,
+                              "routing_key": routing_key,
+                              "options": options})
         if nodenames:
             self._add_queue_to_nodes(queue, name__in=nodenames)
         else:

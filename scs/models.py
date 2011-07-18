@@ -46,6 +46,7 @@ class Queue(models.Model):
 
 class Node(models.Model):
     Queue = Queue
+    MultiTool = MultiTool
 
     objects = NodeManager()
     mutex = Lock()
@@ -85,28 +86,28 @@ class Node(models.Model):
         """Restarts the instance."""
         return self._action("restart", **kwargs)
 
-    def alive(self, timeout=1):
+    def alive(self, **kwargs):
         """Returns :const:`True` if the pid responds to signals,
         and the instance responds to ping broadcasts."""
-        return self.responds_to_signal() and self.responds_to_ping(timeout)
+        return self.responds_to_signal() and self.responds_to_ping(**kwargs)
 
-    def stats(self):
+    def stats(self, **kwargs):
         """Returns node statistics (as ``celeryctl inspect stats``)."""
-        return self._query("stats")
+        return self._query("stats", **kwargs)
 
-    def autoscale(self, max=None, min=None):
+    def autoscale(self, max=None, min=None, **kwargs):
         """Set min/max autoscale settings."""
         if max is not None:
             self.max_concurrency = max
         if min is not None:
             self.min_concurrency = min
         self.save()
-        return self._query("autoscale", max=max, min=min)
+        return self._query("autoscale", dict(max=max, min=min), **kwargs)
 
-    def responds_to_ping(self, timeout=1):
+    def responds_to_ping(self, **kwargs):
         """Returns :const:`True` if the instance responds to
         broadcast ping."""
-        return True if self._query("ping", timeout=timeout) else False
+        return True if self._query("ping", **kwargs) else False
 
     def responds_to_signal(self):
         """Returns :const:`True` if the pidfile exists and the pid
@@ -122,28 +123,31 @@ class Node(models.Model):
             raise
         return True
 
-    def consuming_from(self):
+    def consuming_from(self, **kwargs):
         """Return the queues the instance is currently consuming from."""
-        queues = self._query("active_queues")
+        queues = self._query("active_queues", **kwargs)
         if queues:
             return dict((q["name"], q) for q in queues)
         return {}
 
-    def add_queue(self, name):
+    def add_queue(self, q, **kwargs):
         """Add queue for this instance by name."""
-        q = self.queues.get(name=name)
+        if not isinstance(q, self.Queue):
+            q = self.Queue.objects.get(name=q)
         options = deserialize(q.options) if q.options else {}
-        exchange = q.exchange if q.exchange is not None else name
-        routing_key = q.routing_key if q.routing_key is not None else name
-        self._query("add_consumer", queue=name,
-                                    exchange=exchange,
-                                    exchange_type=q.exchange_type,
-                                    routing_key=routing_key,
-                                    **options)
+        exchange = q.exchange if q.exchange else q.name
+        routing_key = q.routing_key if q.routing_key else q.name
+        return self._query("add_consumer", dict(queue=q.name,
+                                                exchange=exchange,
+                                                exchange_type=q.exchange_type,
+                                                routing_key=routing_key,
+                                                **options), **kwargs)
 
-    def cancel_queue(self, queue):
+    def cancel_queue(self, queue, **kwargs):
         """Cancel queue for this instance by :class:`Queue`."""
-        self._query("cancel_consumer", queue=queue.name)
+        if not isinstance(queue, self.Queue):
+            queue = self.Queue.objects.get(name=queue)
+        return self._query("cancel_consumer", dict(queue=queue.name), **kwargs)
 
     def getpid(self):
         """Get the process id for this instance by reading the pidfile.
@@ -161,16 +165,19 @@ class Node(models.Model):
                   + list(self.argv) + list(self.default_args))
             return self.multi.execute_from_commandline(argv)
 
-    def _query(self, cmd, **kwargs):
+    def _query(self, cmd, args={}, **kwargs):
         """Send remote control command and wait for this instances reply."""
         name = self.name
-        timeout = kwargs.pop("timeout", None) or 1
-        r = celery.control.broadcast(cmd, arguments=kwargs,
-                   destination=[name], reply=True, timeout=timeout)
+        r = celery.control.broadcast(cmd, arguments=args,
+                   destination=[name], reply=True, **kwargs)
         if r:
             for reply in r:
                 if name in reply:
                     return reply[name]
+
+    def revive(self, *args, **kwargs):
+        # here so this object can be used with BrokerConnection.ensure
+        pass
 
     @property
     def argv(self):
@@ -189,7 +196,7 @@ class Node(models.Model):
     def multi(self):
         env = os.environ.copy()
         env.pop("CELERY_LOADER", None)
-        return MultiTool(env=env)
+        return self.MultiTool(env=env)
 
     @property
     def direct_queue(self):
@@ -208,5 +215,6 @@ class Node(models.Model):
         return ("--workdir=%s" % (self.cwd, ),
                 "--pidfile=%s" % (self.pidfile, ),
                 "--logfile=%s" % (self.logfile, ),
+                "--loglevel=DEBUG",
                 "--autoscale=%s,%s" % (self.max_concurrency,
                                        self.min_concurrency))
