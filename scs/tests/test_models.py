@@ -64,12 +64,12 @@ class test_Node(unittest.TestCase):
         q.save()
 
         n.add_queue(q)
-        n._query.assert_called_with("add_consumer", queue=q.name,
+        n._query.assert_called_with("add_consumer", dict(queue=q.name,
                                     exchange=q.name, routing_key=q.name,
-                                    exchange_type=None)
+                                    exchange_type=None))
 
         n.cancel_queue(q)
-        n._query.assert_called_with("cancel_consumer", queue=q.name)
+        n._query.assert_called_with("cancel_consumer", dict(queue=q.name))
 
     def test_objects(self):
         n = Node.objects.add()

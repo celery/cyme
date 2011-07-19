@@ -1,7 +1,7 @@
 from celery.tests.utils import unittest
 from mock import Mock
 
-from scs.agent import Agent, Cluster
+from scs.agent import Agent
 from scs.thread import gThread
 
 
