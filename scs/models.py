@@ -14,10 +14,42 @@ from kombu.utils import cached_property
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
-from scs.managers import NodeManager, QueueManager
+from scs.managers import BrokerManager, NodeManager, QueueManager
 from scs.utils import shellquote
 
 CWD = "/var/run/scs"
+
+
+class Broker(models.Model):
+    objects = BrokerManager()
+
+    hostname = models.CharField(_(u"hostname"), max_length=128)
+    port = models.IntegerField(_(u"port"))
+    userid = models.CharField(_(u"userid"), max_length=128)
+    password = models.CharField(_(u"password"), max_length=128)
+    virtual_host = models.CharField(_(u"virtual host"), max_length=128)
+
+    _pool = None
+
+    class Meta:
+        verbose_name = _(u"broker")
+        verbose_name_plural = _(u"brokers")
+        unique_together = ("hostname", "port", "virtual_host")
+
+    def __unicode__(self):
+        return unicode(self.connection().as_uri())
+
+    def connection(self):
+        return celery.broker_connection(hostname=self.hostname,
+                                        userid=self.userid,
+                                        password=self.password,
+                                        virtual_host=self.virtual_host,
+                                        port=self.port)
+    @property
+    def pool(self):
+        if self._pool is None:
+            self._pool = self.connection().Pool(celery.conf.BROKER_POOL_LIMIT)
+        return self._pool
 
 
 class Queue(models.Model):
@@ -45,6 +77,7 @@ class Queue(models.Model):
 
 
 class Node(models.Model):
+    Broker = Broker
     Queue = Queue
     MultiTool = MultiTool
 
@@ -58,6 +91,7 @@ class Node(models.Model):
     min_concurrency = models.IntegerField(_(u"min concurrency"), default=1)
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
+    _broker = models.ForeignKey(Broker, null=True)
 
     class Meta:
         verbose_name = _(u"node")
@@ -168,16 +202,19 @@ class Node(models.Model):
     def _query(self, cmd, args={}, **kwargs):
         """Send remote control command and wait for this instances reply."""
         name = self.name
-        r = celery.control.broadcast(cmd, arguments=args,
-                   destination=[name], reply=True, **kwargs)
+        conn = None
+        if "connection" not in kwargs:
+            conn = kwargs["connection"] = self.broker.pool.acquire(block=True)
+        try:
+            r = celery.control.broadcast(cmd, arguments=args,
+                       destination=[name], reply=True, **kwargs)
+        finally:
+            if conn:
+                conn.release()
         if r:
             for reply in r:
                 if name in reply:
                     return reply[name]
-
-    def revive(self, *args, **kwargs):
-        # here so this object can be used with BrokerConnection.ensure
-        pass
 
     @property
     def argv(self):
@@ -218,3 +255,8 @@ class Node(models.Model):
                 "--loglevel=DEBUG",
                 "--autoscale=%s,%s" % (self.max_concurrency,
                                        self.min_concurrency))
+
+    @property
+    def broker(self):
+        if self._broker is None:
+            return self.Broker._default_manager.get_default()

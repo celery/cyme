@@ -5,7 +5,7 @@ from django.utils.translation import ugettext_lazy as _
 from djcelery.admin_utils import action, display_field, fixedwidth
 from djcelery.utils import naturaldate
 
-from scs.models import Node, Queue
+from scs.models import Broker, Node, Queue
 from scs.supervisor import supervisor
 
 
@@ -67,5 +67,6 @@ class NodeAdmin(admin.ModelAdmin):
         supervisor.restart(queryset).wait()
 
 
+admin.site.register(Broker)
 admin.site.register(Node, NodeAdmin)
 admin.site.register(Queue)

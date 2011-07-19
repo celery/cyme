@@ -22,7 +22,7 @@ from scs.thread import gThread
 logger = logging.getLogger("Supervisor")
 
 
-def insured(fun, *args, **kwargs):
+def insured(node, fun, *args, **kwargs):
     """Ensures any function performing a broadcast command completes
     despite intermittent connection failures."""
 
@@ -31,7 +31,7 @@ def insured(fun, *args, **kwargs):
             fun, exc))
         supervisor.pause()
 
-    with celery.pool.acquire(block=True) as conn:
+    with node.broker.pool.acquire(block=True) as conn:
         conn.ensure_connection(errback=errback)
         # we cache the channel for subsequent calls, this has to be
         # reset on revival.
@@ -180,7 +180,7 @@ class Supervisor(gThread):
         is_alive = False
         for i in (0.1, 0.5, 1, 1, 1, 1):
             self.info("%s pingWithTimeout: %s" % (node, i))
-            if insured(node.responds_to_ping, timeout=i):
+            if insured(node, node.responds_to_ping, timeout=i):
                 is_alive = True
                 break
         if is_alive:
@@ -218,19 +218,19 @@ class Supervisor(gThread):
 
     def _do_verify_node(self, node):
         if node.is_enabled and node.pk:
-            if not blocking(insured, node.alive):
+            if not blocking(insured, node, node.alive):
                 self._do_restart_node(node, ratelimit=True)
             self._verify_node_processes(node)
             self._verify_node_queues(node)
         else:
-            if blocking(insured, node.alive):
+            if blocking(insured, node, node.alive):
                 self._do_stop_node(node)
 
     def _verify_node_queues(self, node):
         """Verify that the queues the node is consuming from matches
         the queues listed in the model."""
         queues = set(queue.name for queue in node.queues.enabled())
-        reply = blocking(insured, node.consuming_from)
+        reply = blocking(insured, node, node.consuming_from)
         if reply is None:
             return
         consuming_from = set(reply.keys())
@@ -238,25 +238,25 @@ class Supervisor(gThread):
         for queue in consuming_from ^ queues:
             if queue in queues:
                 self.warn("%s: node.consume_from: %s" % (node, queue))
-                blocking(insured, node.add_queue, queue)
+                blocking(insured, node, node.add_queue, queue)
             elif queue == node.direct_queue:
                 pass
             else:
                 self.warn("%s: node.cancel_consume: %s" % (node, queue))
-                blocking(insured, node.cancel_queue, queue)
+                blocking(insured, node, node.cancel_queue, queue)
 
     def _verify_node_processes(self, node):
         """Verify that the max/min concurrency settings of the
         node matches that which is specified in the model."""
         max, min = node.max_concurrency, node.min_concurrency
         try:
-            current = insured(node.stats)["autoscaler"]
+            current = insured(node, node.stats)["autoscaler"]
         except (TypeError, KeyError):
             return
         if max != current["max"] or min != current["min"]:
             self.warn("%s: node.set_autoscale max=%r min=%r" % (
                 node, max, min))
-            blocking(insured, node.autoscale, max, min)
+            blocking(insured, node, node.autoscale, max, min)
 
     def connect_signals(self):
 

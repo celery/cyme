@@ -1,9 +1,23 @@
 from anyjson import serialize
+from celery import current_app as celery
 from celery.utils import gen_unique_id
 
 from djcelery.managers import ExtendedManager
 
 from scs.utils import maybe_list
+
+
+class BrokerManager(ExtendedManager):
+
+    def get_default(self):
+        conf = celery.conf
+        broker, _ = self.get_or_create(
+                        hostname=conf.BROKER_HOST or "localhost",
+                        userid=conf.BROKER_USER or "guest",
+                        password=conf.BROKER_PASSWORD or "guest",
+                        port=conf.BROKER_PORT or 5672,
+                        virtual_host=conf.BROKER_VHOST or "/")
+        return broker
 
 
 class NodeManager(ExtendedManager):
