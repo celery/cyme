@@ -7,6 +7,7 @@ from threading import Lock
 
 from celery import current_app as celery
 from celery.datastructures import TokenBucket
+from celery.utils import noop
 from celery.utils.timeutils import rate
 from eventlet.queue import LightQueue
 from eventlet.event import Event
@@ -102,15 +103,16 @@ class Supervisor(gThread):
         instance that can be used to wait for the operation to complete.
 
         """
-        if not self.paused:
-            return self._request(nodes, self._do_verify_node)
+        return self._request(nodes, self._do_verify_node)
 
     def pause(self):
         with self._pause_mutex:
+            self.info("pausing")
             self.paused = True
 
     def resume(self):
         with self._pause_mutex:
+            self.info("resuming")
             self.paused = False
 
     def restart(self, nodes):
@@ -152,7 +154,7 @@ class Supervisor(gThread):
         self.info("started...")
         while 1:
             nodes, event, action = queue.get()
-            debug("wake-up")
+            self.info("wake-up")
             try:
                 for node in nodes:
                     try:
@@ -217,14 +219,15 @@ class Supervisor(gThread):
         blocking(node.stop)
 
     def _do_verify_node(self, node):
-        if node.is_enabled and node.pk:
-            if not blocking(insured, node, node.alive):
-                self._do_restart_node(node, ratelimit=True)
-            self._verify_node_processes(node)
-            self._verify_node_queues(node)
-        else:
-            if blocking(insured, node, node.alive):
-                self._do_stop_node(node)
+        if not self.paused:
+            if node.is_enabled and node.pk:
+                if not blocking(insured, node, node.alive):
+                    self._do_restart_node(node, ratelimit=True)
+                self._verify_node_processes(node)
+                self._verify_node_queues(node)
+            else:
+                if blocking(insured, node, node.alive):
+                    self._do_stop_node(node)
 
     def _verify_node_queues(self, node):
         """Verify that the queues the node is consuming from matches
