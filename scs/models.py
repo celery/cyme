@@ -48,6 +48,7 @@ class Broker(models.Model):
                                         password=self.password,
                                         virtual_host=self.virtual_host,
                                         port=self.port)
+
     @property
     def pool(self):
         if self._pool is None:
@@ -198,11 +199,11 @@ class Node(models.Model):
     @property
     def extra_config(self):
         return ["--",
-                "broker.host=%s"     % (self.broker.hostname, ),
-                "broker.port=%s"     % (self.broker.port, ),
-                "broker.user=%s"     % (self.broker.userid, ),
-                "broker.password=%s" % (self.broker.password, ),
-                "broker.vhost=%s"    % (self.broker.virtual_host, )]
+                "broker.host=%s" % (self.broker.hostname, ),
+                "broker.port=%s" % (self.broker.port, ),
+                "broker.user=%s" % (self.broker.userid, ),
+                "broker.vhost=%s" % (self.broker.virtual_host, ),
+                "broker.password=%s" % (self.broker.password, )]
 
     def _action(self, action, multi="celeryd-multi"):
         """Execute :program:`celeryd-multi` command."""

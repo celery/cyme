@@ -5,9 +5,7 @@ import sys
 from collections import defaultdict
 from threading import Lock
 
-from celery import current_app as celery
 from celery.datastructures import TokenBucket
-from celery.utils import noop
 from celery.utils.timeutils import rate
 from eventlet.queue import LightQueue
 from eventlet.event import Event
@@ -51,8 +49,8 @@ def insured(node, fun, *args, **kwargs):
 
 class Supervisor(gThread):
     """The supervisor wakes up at intervals to monitor changes in the model.
-    It can also be requested to perform specific operations, and these operations
-    can be either sync or async.
+    It can also be requested to perform specific operations, and these
+    operations can be either async or sync.
 
     It is responsible for:
 
@@ -143,14 +141,12 @@ class Supervisor(gThread):
         """
         return self._request(nodes, self._do_stop_node)
 
-
     def before(self):
         self.connect_signals()
         self.start_periodic_update()
 
     def run(self):
         queue = self.queue
-        debug = self.debug
         self.info("started...")
         while 1:
             nodes, event, action = queue.get()
@@ -207,7 +203,8 @@ class Supervisor(gThread):
                     self._verify_restart_node(node)
                 else:
                     self.error(
-                        "%s node.disabled: Restarted too many times" % (node, ))
+                        "%s node.disabled: Restarted too many times" % (
+                            node, ))
                     node.disable()
                     self._buckets.pop(node.restart)
         else:
