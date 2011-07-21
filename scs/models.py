@@ -1,6 +1,7 @@
 from __future__ import absolute_import, with_statement
 
 import errno
+import logging
 import os
 
 from threading import Lock
@@ -18,6 +19,8 @@ from scs.managers import BrokerManager, NodeManager, QueueManager
 from scs.utils import shellquote
 
 CWD = "/var/run/scs"
+
+logger = logging.getLogger("Node")
 
 
 class Broker(models.Model):
@@ -91,7 +94,7 @@ class Node(models.Model):
     min_concurrency = models.IntegerField(_(u"min concurrency"), default=1)
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
-    _broker = models.ForeignKey(Broker, null=True)
+    _broker = models.ForeignKey(Broker, null=True, blank=True)
 
     class Meta:
         verbose_name = _(u"node")
@@ -192,11 +195,23 @@ class Node(models.Model):
         pidfile = self.pidfile.replace("%n", self.name)
         return platforms.PIDFile(pidfile).read_pid()
 
+    @property
+    def extra_config(self):
+        return ["--",
+                "broker.host=%s"     % (self.broker.hostname, ),
+                "broker.port=%s"     % (self.broker.port, ),
+                "broker.user=%s"     % (self.broker.userid, ),
+                "broker.password=%s" % (self.broker.password, ),
+                "broker.vhost=%s"    % (self.broker.virtual_host, )]
+
     def _action(self, action, multi="celeryd-multi"):
         """Execute :program:`celeryd-multi` command."""
         with self.mutex:
             argv = ([multi, action, '--suffix=""', "--no-color", self.name]
-                  + list(self.argv) + list(self.default_args))
+                  + list(self.argv)
+                  + list(self.default_args)
+                  + self.extra_config)
+            logger.info(" ".join(argv))
             return self.multi.execute_from_commandline(argv)
 
     def _query(self, cmd, args={}, **kwargs):
@@ -260,3 +275,4 @@ class Node(models.Model):
     def broker(self):
         if self._broker is None:
             return self.Broker._default_manager.get_default()
+        return self._broker
