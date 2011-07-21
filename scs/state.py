@@ -5,6 +5,8 @@ class State(object):
     broker_last_revived = None
 
     def on_broker_revive(self, *args, **kwargs):
+        from scs.supervisor import supervisor
+        supervisor.resume()
         self.broker_last_revived = time()
 
     @property
