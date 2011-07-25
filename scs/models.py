@@ -49,6 +49,13 @@ class Broker(models.Model):
                                         virtual_host=self.virtual_host,
                                         port=self.port)
 
+    def as_dict(self):
+        return {"hostname": self.hostname,
+                "port": self.port,
+                "userid": self.userid,
+                "password": self.password,
+                "virtual_host": self.virtual_host}
+
     @property
     def pool(self):
         if self._pool is None:
@@ -79,6 +86,13 @@ class Queue(models.Model):
     def __unicode__(self):
         return self.name
 
+    def as_dict(self):
+        return {"name": self.name,
+                "exchange": self.exchange,
+                "exchange_type": self.exchange_type,
+                "routing_key": self.routing_key,
+                "options": self.options}
+
 
 class Node(models.Model):
     Broker = Broker
@@ -96,6 +110,14 @@ class Node(models.Model):
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
     _broker = models.ForeignKey(Broker, null=True, blank=True)
+
+    def as_dict(self):
+        return {"name": self.name,
+                "queues": [q.as_dict() for q in self.queues.enabled()],
+                "max_concurrency": self.max_concurrency,
+                "min_concurrency": self.min_concurrency,
+                "is_enabled": self.is_enabled,
+                "broker": self.broker.as_dict()}
 
     class Meta:
         verbose_name = _(u"node")
@@ -196,15 +218,6 @@ class Node(models.Model):
         pidfile = self.pidfile.replace("%n", self.name)
         return platforms.PIDFile(pidfile).read_pid()
 
-    @property
-    def extra_config(self):
-        return ["--",
-                "broker.host=%s" % (self.broker.hostname, ),
-                "broker.port=%s" % (self.broker.port, ),
-                "broker.user=%s" % (self.broker.userid, ),
-                "broker.vhost=%s" % (self.broker.virtual_host, ),
-                "broker.password=%s" % (self.broker.password, )]
-
     def _action(self, action, multi="celeryd-multi"):
         """Execute :program:`celeryd-multi` command."""
         with self.mutex:
@@ -271,6 +284,16 @@ class Node(models.Model):
                 "--loglevel=DEBUG",
                 "--autoscale=%s,%s" % (self.max_concurrency,
                                        self.min_concurrency))
+
+    @property
+    def extra_config(self):
+        return ("--                             \
+                 broker.host=%(hostname)s       \
+                 broker.port=%(port)s           \
+                 broker.user=%(userid)s         \
+                 broker.password=%(password)s   \
+                 broker.vhost=%(virtual_host)s  \
+                " % self.broker.as_dict()).split()
 
     @property
     def broker(self):

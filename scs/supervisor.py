@@ -37,6 +37,8 @@ def insured(node, fun, *args, **kwargs):
         channel = getattr(conn, "_publisher_chan", None)
 
         def on_revive(channel):
+            if getattr(conn, "_publisher_chan", None):
+                conn._publisher_chan.close()
             conn._publisher_chan = channel
             state.on_broker_revive(channel)
             supervisor.resume()

@@ -3,9 +3,9 @@ import logging
 from celery import current_app as celery
 from kombu.utils import gen_unique_id
 
-from scs.amqp import AMQAgent
 from scs.httpd import HttpServer
-from scs.models import Node
+from scs.models import Broker, Node
+from scs.srs import SRSAgent
 from scs.supervisor import supervisor
 from scs.thread import gThread
 
@@ -13,18 +13,18 @@ from scs.thread import gThread
 class Agent(gThread):
 
     def __init__(self, addrport="", id=None, loglevel=logging.INFO,
-            logfile=None, without_httpd=False, without_amqp=False,
+            logfile=None, without_httpd=False, without_srs=False,
             **kwargs):
         self.id = id or gen_unique_id()
         self.addrport = addrport
         self.without_httpd = without_httpd
-        self.without_amqp = without_amqp
+        self.without_srs = without_srs
         self.logfile = logfile
         self.loglevel = loglevel
         self.httpd = HttpServer(addrport)  if not self.without_httpd else None
-        self.amq_agent = AMQAgent(self.id) if not self.without_amqp  else None
+        self.srs_agent = SRSAgent(self.id) if not self.without_srs  else None
 
-        components = [self.httpd, supervisor, self.amq_agent]
+        components = [self.httpd, supervisor, self.srs_agent]
         self.components = list(filter(None, components))
         super(Agent, self).__init__()
 
@@ -42,15 +42,24 @@ class Agent(gThread):
 
 class Cluster(object):
     Nodes = Node._default_manager
+    Brokers = Broker._default_manager
     supervisor = supervisor
 
     def get(self, nodename):
         return self.Nodes.get(name=nodename)
 
     def add(self, nodename=None, queues=None,
-            max_concurrency=1, min_concurrency=1):
+            max_concurrency=1, min_concurrency=1, hostname=None,
+            port=None, userid=None, password=None, virtual_host=None,
+            **kwargs):
+        broker = None
+        if hostname:
+            broker = self.Brokers.get_or_create(
+                            hostname=hostname, port=port,
+                            userid=userid, password=password,
+                            virtual_host=virtual_host)
         node = self.Nodes.add(nodename, queues, max_concurrency,
-                                                min_concurrency)
+                              min_concurrency, broker)
         self.supervisor.verify([node]).wait()
         return node
 
@@ -67,13 +76,18 @@ class Cluster(object):
         return node
 
     def restart(self, nodename):
-        self.supervisor.restart([self.get(nodename)]).wait()
+        node = self.get(nodename)
+        self.supervisor.restart([node]).wait()
+        return node
 
     def enable(self, nodename):
-        self.supervisor.verify([self.Nodes.enable(nodename)]).wait()
+        node = self.Nodes.enable(nodename)
+        self.supervisor.verify([node]).wait()
+        return node
 
     def disable(self, nodename):
-        self.supervisor.verify([self.Nodes.disable(nodename)]).wait()
-
+        node = self.Nodes.disable(nodename)
+        self.supervisor.verify([node]).wait()
+        return node
 
 cluster = Cluster()

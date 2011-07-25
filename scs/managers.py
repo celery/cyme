@@ -40,14 +40,20 @@ class NodeManager(ExtendedManager):
         return acc
 
     def add(self, nodename=None, queues=None, max_concurrency=1,
-            min_concurrency=1):
+            min_concurrency=1, broker=None):
         nodename = nodename or gen_unique_id()
 
         node = self.create(name=nodename or gen_unique_id(),
                            max_concurrency=max_concurrency,
                            min_concurrency=min_concurrency)
+        needs_save = False
         if queues:
             node.queues = self._maybe_queues(queues)
+            needs_save = True
+        if broker:
+            node._broker = broker
+            needs_save = True
+        if needs_save:
             node.save()
         return node
 
