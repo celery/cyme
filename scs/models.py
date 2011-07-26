@@ -205,9 +205,9 @@ class Node(models.Model):
 
     def cancel_queue(self, queue, **kwargs):
         """Cancel queue for this instance by :class:`Queue`."""
-        if not isinstance(queue, self.Queue):
-            queue = self.Queue.objects.get(name=queue)
-        return self._query("cancel_consumer", dict(queue=queue.name), **kwargs)
+        if isinstance(queue, self.Queue):
+            queue = queue.name
+        return self._query("cancel_consumer", dict(queue=queue), **kwargs)
 
     def getpid(self):
         """Get the process id for this instance by reading the pidfile.
@@ -248,10 +248,9 @@ class Node(models.Model):
     @property
     def argv(self):
         acc = []
-        for k, v in self.argtuple:
-            if v:
-                acc.append(k)
-                acc.append(shellquote(str(v)))
+        [acc.extend([k, shellquote(str(v))])
+                for k, v in self.argtuple
+                    if v]
         return acc
 
     @property

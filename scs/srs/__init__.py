@@ -25,12 +25,14 @@ class SRSAgent(gThread):
                                "topic", auto_delete=True)
     declared = {}
 
+    @property
+    def create_exchange(self):
+        return Exchange("srs.create.%s" % (self.id, ),
+                        "fanout", auto_delete=True)
+
     def __init__(self, id):
         self.id = id
-        create_name = self.create_exchange % (self.id, )
-        self._create = Queue(gen_unique_id(),
-                             Exchange(create_name, "fanout",
-                                      auto_delete=True),
+        self._create = Queue(gen_unique_id(), self.create_exchange,
                              auto_delete=True)
         self._query = Queue(self.id, self.query_exchange, auto_delete=True)
         self.connection_errors = celery.broker_connection().connection_errors
@@ -128,8 +130,7 @@ class SRSAgent(gThread):
 
     @cached_property
     def producers(self):
-        return ProducerPool(connections=celery.pool,
-                            limit=celery.pool.limit)
+        return ProducerPool(connections=celery.pool, limit=celery.pool.limit)
 
     @cached_property
     def cluster(self):

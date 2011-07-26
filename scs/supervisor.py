@@ -10,6 +10,7 @@ from celery.utils.timeutils import rate
 from eventlet.queue import LightQueue
 from eventlet.event import Event
 from kombu.syn import blocking
+from kombu.utils import fxrangemax
 
 from django.db.models import signals
 
@@ -34,12 +35,12 @@ def insured(node, fun, *args, **kwargs):
         conn.ensure_connection(errback=errback)
         # we cache the channel for subsequent calls, this has to be
         # reset on revival.
-        channel = getattr(conn, "_publisher_chan", None)
+        channel = getattr(conn, "_producer_chan", None)
 
         def on_revive(channel):
-            if getattr(conn, "_publisher_chan", None):
-                conn._publisher_chan.close()
-            conn._publisher_chan = channel
+            if getattr(conn, "_producer_chan", None):
+                conn._producer_chan.close()
+            conn._producer_chan = channel
             state.on_broker_revive(channel)
             supervisor.resume()
 
@@ -92,7 +93,20 @@ class Supervisor(gThread):
         self._buckets = defaultdict(lambda: TokenBucket(
                                     rate(self.restart_max_rate)))
         self._pause_mutex = Lock()
+        self._last_update = None
         super(Supervisor, self).__init__()
+
+    def pause(self):
+        """Pause all timers."""
+        with self._pause_mutex:
+            self.info("pausing")
+            self.paused = True
+
+    def resume(self):
+        """Resume all timers."""
+        with self._pause_mutex:
+            self.info("resuming")
+            self.paused = False
 
     def verify(self, nodes):
         """Verify the consistency of one or more nodes.
@@ -104,16 +118,6 @@ class Supervisor(gThread):
 
         """
         return self._request(nodes, self._do_verify_node)
-
-    def pause(self):
-        with self._pause_mutex:
-            self.info("pausing")
-            self.paused = True
-
-    def resume(self):
-        with self._pause_mutex:
-            self.info("resuming")
-            self.paused = False
 
     def restart(self, nodes):
         """Restart one or more nodes.
@@ -164,9 +168,12 @@ class Supervisor(gThread):
                 event.send(True)
 
     def start_periodic_update(self, interval=5.0):
-        self.verify(Node.objects.all())
-        eventlet.spawn_after(interval, self.start_periodic_update,
-                             interval=interval)
+        try:
+            if not self._last_update or self._last_update.ready():
+                self._last_update = self.verify(Node.objects.all())
+        finally:
+            eventlet.spawn_after(interval, self.start_periodic_update,
+                                 interval=interval)
 
     def _request(self, nodes, action):
         event = Event()
@@ -178,7 +185,7 @@ class Supervisor(gThread):
         self.warn("%s node.restart" % (node, ))
         blocking(node.restart)
         is_alive = False
-        for i in (0.1, 0.5, 1, 1, 1, 1):
+        for i in fxrangemax(0.1, 1, 0.4, 30):
             self.info("%s pingWithTimeout: %s" % (node, i))
             if insured(node, node.responds_to_ping, timeout=i):
                 is_alive = True
@@ -273,6 +280,4 @@ class Supervisor(gThread):
         signals.post_save.connect(verify_on_changed)
         signals.post_delete.connect(stop_on_delete)
         signals.m2m_changed.connect(verify_on_changed)
-
-
 supervisor = Supervisor()
