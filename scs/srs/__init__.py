@@ -27,6 +27,98 @@ def consume_from(*consumers):
 
 
 class SRSAgent(gThread):
+    """The SRS Agent enables the SRS controller to communicate with this
+    agent via AMQP.
+
+    :param id: The agent id.
+
+    **Messaging basics**
+
+    The message body must be JSON encoded
+    (with a content type of ``application/json``),
+
+    **Creating instances**
+
+    An instance can be created by sending a message
+    to the ``srs.create.%(id)s`` fanout exchange, where
+    `id` is this agents id.
+
+    The body must contain the name of the new instance (``id``),
+    and include the details of a broker the new instance
+    can connect to (``hostname``, ``port``, ``userid``, ``password``
+    and ``virtual_host``).
+
+    **Updating instances**
+
+    The binds a queue to the ``srs.instance.update`` topic exchange
+    for every instance it controls, using the instance id as routing key.
+
+    Messages sent to this exchange must include a ``state`` key,
+    where a ``state`` of ``"stopping"`` means that the instance
+    will be disabled, and a ``state`` of ``"deleting"`` means
+    that the instance will be forgotten about.
+
+    **Querying instances**
+
+    A message sent to the ``srs.agent.query-instances`` fanout exchange
+    will result in a reply being sent back to the ``reply`` exchange
+    containing a list of all the instances this agent controls
+    and their details (broker, max/min concurrency, and queues)
+
+    **Statistics**
+
+    Statistics about this agent and its instances are sent to
+    the ``srs.statistics`` fanout exchange every 15 seconds.
+
+    Statistics is a JSON encoded dictionary containing the following
+    items:
+
+    .. code-block:: python
+
+        {"agents": {
+            my_agent_id: {
+                "loadavg": [now, float load1, float load2, float load3],
+                "instances": [now, int total_instances,
+                                   int total_active_instances],
+                "drive_used": [now, int capacity_percentage],
+            },
+         "instances": {
+            instance_id_1: {
+                "autoscaler": {
+                    "current": int current_procs,
+                    "max": int max_procs,
+                    "min": int min_procs
+                },
+                "consumer": {
+                    "broker": {
+                        "connect_timeout": int,
+                        "hostname": unicode,
+                        "insist": bool,
+                        "login_method": unicode,
+                        "port": int,
+                        "ssl": bool,
+                        "transport": unicode,
+                        "transport_options": dict,
+                        "userid": unicode,
+                        "virtual_host": unicode,
+                    },
+                },
+                "pool": {
+                    "max-concurrency": int current_procs,
+                    "max-tasks-per-child": int or None,
+                    "processes": [list of pids],
+                    "put-guarded-by-semaphore": True,
+                    "timeouts": [seconds soft_timeout, seconds hard_timeout],
+                },
+                "total": {task_types_and_total_count},
+            }
+        }}
+
+    Where ``now`` is an RFC2822 formatted timestamp in the UTC timezone,
+    and ``procs`` is a number of either processes, threads or green threads
+    depending on the pool type used.
+
+    """
     Nodes = Node._default_manager
 
     create_exchange = "srs.create.%s"

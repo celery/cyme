@@ -62,7 +62,7 @@ class Supervisor(gThread):
         * Restarting unresponsive/killed instances.
         * Making sure the instances consumes from the queues
           specified in the model, sending ``add_consumer``/-
-          `cancel_consumer`` broadcast commands to the nodes as it
+          ``cancel_consumer`` broadcast commands to the nodes as it
           finds inconsistencies.
         * Making sure the max/min concurrency setting is as specified in the
           model,  sending ``autoscale`` broadcast commands to the noes
