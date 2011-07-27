@@ -1,4 +1,11 @@
+import time
+
+from email.utils import formatdate
 from importlib import import_module
+
+
+def rfc2822(dt):
+    return formatdate(time.mktime(dt.timetuple()))
 
 
 def maybe_list(l):

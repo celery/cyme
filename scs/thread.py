@@ -25,6 +25,18 @@ class gThread(object):
         finally:
             self.after()
 
+    def start_periodic_timer(self, interval, fun, *args, **kwargs):
+
+        def _re(interval):
+            try:
+                greenthread.spawn(fun, *args, **kwargs).wait()
+            except Exception, exc:
+                self.error("Periodic timer %r raised: %r" % (fun, exc),
+                           exc_info=sys.exc_info())
+            finally:
+                greenthread.spawn_after(interval, _re, interval=interval)
+        return greenthread.spawn_after(interval, _re, interval=interval)
+
     def run(self):
         raise NotImplementedError("gThreads must implement 'run'")
 

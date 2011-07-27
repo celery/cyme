@@ -149,7 +149,7 @@ class Supervisor(gThread):
 
     def before(self):
         self.connect_signals()
-        self.start_periodic_update()
+        self.start_periodic_timer(5, self._verify_all)
 
     def run(self):
         queue = self.queue
@@ -167,13 +167,9 @@ class Supervisor(gThread):
             finally:
                 event.send(True)
 
-    def start_periodic_update(self, interval=5.0):
-        try:
-            if not self._last_update or self._last_update.ready():
-                self._last_update = self.verify(Node.objects.all())
-        finally:
-            eventlet.spawn_after(interval, self.start_periodic_update,
-                                 interval=interval)
+    def _verify_all(self):
+        if not self._last_update or self._last_update.ready():
+            self._last_update = self.verify(Node.objects.all())
 
     def _request(self, nodes, action):
         event = Event()
