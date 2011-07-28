@@ -119,20 +119,31 @@ class SRSAgent(gThread):
     depending on the pool type used.
 
     """
+
+    #: Manager object for all nodes managed by this agent.
     Nodes = Node._default_manager
 
-    create_exchange = "srs.create.%s"
+    #: Exchange used to query available instances.
     query_exchange = Exchange("srs.agent.query-instances",
                               "fanout", auto_delete=True)
+
+    #: Reply exchange.
     reply_exchange = Exchange("reply", "direct")
+
+    #: Exchange used to request instance updates.
     update_exchange = Exchange("srs.instance.update",
                                "topic", auto_delete=True)
+
+    #: Exchange we publish statistics to.
     stats_exchange = Exchange("srs.statistics",
                               "fanout", auto_delete=True)
-    declared = {}
+
+    #: set of entities we have already declared.
+    _declared = set()
 
     @property
     def create_exchange(self):
+        """Create request exchange."""
         return Exchange("srs.create.%s" % (self.id, ),
                         "fanout", auto_delete=True)
 
@@ -159,7 +170,6 @@ class SRSAgent(gThread):
                 self.error("Connection to broker lost. "
                            "Trying to re-establish the connection...",
                            exc_info=sys.exc_info())
-
 
     def create_update_queue(self, node):
         return Queue(gen_unique_id(), self.update_exchange, node.name,
@@ -244,8 +254,9 @@ class SRSAgent(gThread):
             raise
 
     def maybe_declare(self, entity, channel):
-        if entity not in self.declared:
+        if entity not in self._declared:
             entity(channel).declare()
+            self._declared.add(entity)
 
     def publish_stats(self):
         with self.producers.acquire(block=True) as producer:
@@ -264,6 +275,7 @@ class SRSAgent(gThread):
 
     @cached_property
     def producers(self):
+        """producer pool"""
         return ProducerPool(connections=celery.pool, limit=celery.pool.limit)
 
     @cached_property

@@ -2,8 +2,31 @@
  Introduction
 ===============================================
 
-Components
-==========
+.. contents::
+    :local:
+
+Overview
+========
+
+The SCS agent manages Celery worker instances for a particular
+machine (virtual or physical).
+
+Instances can be created, disabled, deleted and configured
+via an HTTP API.  The agent also ensures that all the instances
+it controls are actually running, and is running with the configuration
+described in the database.
+
+Programs
+--------
+
+* :mod:`scs-agent <scs.management.commands.scs_agent>`.
+
+Models
+------
+
+* :class:`~scs.models.Node`.
+* :class:`~scs.models.Queue`.
+* :class:`~scs.models.Broker`.
 
 Supervisor
 ----------
@@ -35,7 +58,7 @@ by the :attr:`wait_after_broker_revived` attribute).
 
 
 HTTP
-====
+----
 
 The http server currently serves up an admin instance
 where you can add, remove and modify instances.
@@ -43,7 +66,7 @@ where you can add, remove and modify instances.
 The http server can be disabled using the :option:`--without-http` option.
 
 SRS
-===
+---
 :see: :class:`~scs.srs.SRSAgent`
 
 The SRS agent can be disabled using the :option:`--without-srs` option.

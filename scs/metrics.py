@@ -24,13 +24,9 @@ class df(object):
         return self.stat.f_bavail * self.stat.f_frsize / 1024
 
     @property
-    def blocks_used(self):
-        return self.stat.f_blocks - self.stat.f_bfree
-
-    @property
     def capacity(self):
-        used = self.stat.f_blocks - self.stat.f_bfree
         avail = self.stat.f_bavail
+        used = self.stat.f_blocks - self.stat.f_bfree
         return int(ceil(used * 100.0 / (used + avail) + 0.5))
 
     @cached_property

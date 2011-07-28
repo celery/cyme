@@ -1,3 +1,38 @@
+"""
+
+.. program:: scs-agent
+
+``scs-agent``
+=============
+
+Starts the SCS agent service.
+
+Options
+-------
+
+.. cmdoption:: -i, --id
+
+    Set agent id, if not provided one will be automatically generated.
+
+.. cmdoption:: --without-httpd
+
+    Disable the HTTP server thread.
+
+.. cmdoption:: --without-srs
+
+    Disable the SRS consumer thread.
+
+.. cmdoption:: -l, --loglevel
+
+    Set custom log level. One of DEBUG/INFO/WARNING/ERROR/CRITICAL.
+    Default is INFO.
+
+.. cmdoption:: -f, --logfile
+
+    Set custom logfile path. Default is :file:`<stderr>`
+
+"""
+
 from __future__ import absolute_import
 
 import sys

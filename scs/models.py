@@ -24,6 +24,7 @@ logger = logging.getLogger("Node")
 
 
 class Broker(models.Model):
+    """Broker host/port and credentials."""
     objects = BrokerManager()
 
     hostname = models.CharField(_(u"hostname"), max_length=128)
@@ -50,6 +51,7 @@ class Broker(models.Model):
                                         port=self.port)
 
     def as_dict(self):
+        """Returns a JSON serializable version of this broker."""
         return {"hostname": self.hostname,
                 "port": self.port,
                 "userid": self.userid,
@@ -64,20 +66,26 @@ class Broker(models.Model):
 
 
 class Queue(models.Model):
+    """An AMQP queue that can be consumed from by one or more instances."""
     objects = QueueManager()
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
+
     exchange = models.CharField(_(u"exchange"), max_length=128,
                                 default=None, null=True, blank=True)
+
     exchange_type = models.CharField(_(u"exchange type"), max_length=128,
                                      default=None, null=True, blank=True)
+
     routing_key = models.CharField(_(u"routing key"), max_length=128,
                                    default=None, null=True, blank=True)
+
+    options = models.TextField(null=True, blank=True)
+
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
+
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
 
-    #: Additional JSON encoded queue options.
-    options = models.TextField(null=True, blank=True)
 
     class Meta:
         verbose_name = _(u"queue")
@@ -87,6 +95,7 @@ class Queue(models.Model):
         return self.name
 
     def as_dict(self):
+        """Returns a JSON serializable version of this queue."""
         return {"name": self.name,
                 "exchange": self.exchange,
                 "exchange_type": self.exchange_type,
