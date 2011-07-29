@@ -1,7 +1,8 @@
 DEBUG = True
 
 # Broker settings.
-BROKER_HOST = "localhost"
+BROKER_HOST = "127.0.0.1"
+BROKER_PORT = 5672
 BROKER_USER = "guest"
 BROKER_PASSWORD = "guest"
 BROKER_VHOST = "/"

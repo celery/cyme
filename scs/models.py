@@ -24,7 +24,7 @@ logger = logging.getLogger("Node")
 
 
 class Broker(models.Model):
-    """Broker host/port and credentials."""
+    """Broker connection arguments."""
     objects = BrokerManager()
 
     hostname = models.CharField(_(u"hostname"), max_length=128)
@@ -51,7 +51,8 @@ class Broker(models.Model):
                                         port=self.port)
 
     def as_dict(self):
-        """Returns a JSON serializable version of this broker."""
+        """Returns a JSON serializable version of this brokers
+        connection parameters."""
         return {"hostname": self.hostname,
                 "port": self.port,
                 "userid": self.userid,
@@ -104,6 +105,7 @@ class Queue(models.Model):
 
 
 class Node(models.Model):
+    """A celeryd instance."""
     Broker = Broker
     Queue = Queue
     MultiTool = MultiTool
@@ -120,14 +122,6 @@ class Node(models.Model):
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
     _broker = models.ForeignKey(Broker, null=True, blank=True)
 
-    def as_dict(self):
-        return {"name": self.name,
-                "queues": [q.as_dict() for q in self.queues.enabled()],
-                "max_concurrency": self.max_concurrency,
-                "min_concurrency": self.min_concurrency,
-                "is_enabled": self.is_enabled,
-                "broker": self.broker.as_dict()}
-
     class Meta:
         verbose_name = _(u"node")
         verbose_name_plural = _(u"nodes")
@@ -135,11 +129,30 @@ class Node(models.Model):
     def __unicode__(self):
         return self.name
 
+    def as_dict(self):
+        """Returns a JSON serializable version of this node."""
+        return {"name": self.name,
+                "queues": [q.as_dict() for q in self.queues.enabled()],
+                "max_concurrency": self.max_concurrency,
+                "min_concurrency": self.min_concurrency,
+                "is_enabled": self.is_enabled,
+                "broker": self.broker.as_dict()}
+
     def enable(self):
+        """Enables this instance.
+
+        The supervisor will then ensure the instance is (re)started.
+
+        """
         self.is_enabled = True
         self.save()
 
     def disable(self):
+        """Disables this instance.
+
+        The supervisor will then ensure the instance is stopped.
+
+        """
         self.is_enabled = False
         self.save()
 

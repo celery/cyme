@@ -12,7 +12,7 @@ class BrokerManager(ExtendedManager):
     def get_default(self):
         conf = celery.conf
         broker, _ = self.get_or_create(
-                        hostname=conf.BROKER_HOST or "localhost",
+                        hostname=conf.BROKER_HOST or "127.0.0.1",
                         userid=conf.BROKER_USER or "guest",
                         password=conf.BROKER_PASSWORD or "guest",
                         port=conf.BROKER_PORT or 5672,

@@ -42,12 +42,16 @@ def insured(node, fun, *args, **kwargs):
                 conn._producer_chan.close()
             conn._producer_chan = channel
             state.on_broker_revive(channel)
-            supervisor.resume()
 
         insured = conn.autoretry(fun, channel, errback=errback,
                                                on_revive=on_revive)
         retval, _ = insured(*args, **dict(kwargs, connection=conn))
         return retval
+
+
+def ib(fun, *args, **kwargs):
+    """Shortcut to ``blocking(insured(fun.im_self, fun(*args, **kwargs)))``"""
+    return blocking(insured, fun.im_self, fun, *args, **kwargs)
 
 
 class Supervisor(gThread):
@@ -193,7 +197,7 @@ class Supervisor(gThread):
                     node, ))
 
     def _can_restart(self):
-        """Returns true if the supervisor are allowed to restart
+        """Returns true if the supervisor is allowed to restart
         nodes at this point."""
         if state.broker_last_revived is None:
             return True
@@ -223,19 +227,19 @@ class Supervisor(gThread):
     def _do_verify_node(self, node):
         if not self.paused:
             if node.is_enabled and node.pk:
-                if not blocking(insured, node, node.alive):
+                if not ib(node.alive):
                     self._do_restart_node(node, ratelimit=True)
                 self._verify_node_processes(node)
                 self._verify_node_queues(node)
             else:
-                if blocking(insured, node, node.alive):
+                if ib(node.alive):
                     self._do_stop_node(node)
 
     def _verify_node_queues(self, node):
         """Verify that the queues the node is consuming from matches
         the queues listed in the model."""
         queues = set(queue.name for queue in node.queues.enabled())
-        reply = blocking(insured, node, node.consuming_from)
+        reply = ib(node.consuming_from)
         if reply is None:
             return
         consuming_from = set(reply.keys())
@@ -243,12 +247,12 @@ class Supervisor(gThread):
         for queue in consuming_from ^ queues:
             if queue in queues:
                 self.warn("%s: node.consume_from: %s" % (node, queue))
-                blocking(insured, node, node.add_queue, queue)
+                ib(node.add_queue, queue)
             elif queue == node.direct_queue:
                 pass
             else:
                 self.warn("%s: node.cancel_consume: %s" % (node, queue))
-                blocking(insured, node, node.cancel_queue, queue)
+                ib(node.cancel_queue, queue)
 
     def _verify_node_processes(self, node):
         """Verify that the max/min concurrency settings of the
@@ -261,7 +265,7 @@ class Supervisor(gThread):
         if max != current["max"] or min != current["min"]:
             self.warn("%s: node.set_autoscale max=%r min=%r" % (
                 node, max, min))
-            blocking(insured, node, node.autoscale, max, min)
+            ib(node.autoscale, max, min)
 
     def connect_signals(self):
 

@@ -1,16 +1,22 @@
 import logging
 
 from celery import current_app as celery
+from celery.utils import instantiate
 from kombu.utils import gen_unique_id
 
-from scs.httpd import HttpServer
 from scs.models import Broker, Node
-from scs.srs import SRSAgent
 from scs.supervisor import supervisor
 from scs.thread import gThread
 
 
 class Agent(gThread):
+    controller_cls = "scs.controller.Controller"
+    httpd_cls = "scs.httpd.HttpServer"
+    srs_cls = "scs.srs.SRSAgent"
+
+    httpd = None
+    srs = None
+    controller = None
 
     def __init__(self, addrport="", id=None, loglevel=logging.INFO,
             logfile=None, without_httpd=False, without_srs=False,
@@ -21,10 +27,13 @@ class Agent(gThread):
         self.without_srs = without_srs
         self.logfile = logfile
         self.loglevel = loglevel
-        self.httpd = HttpServer(addrport)  if not self.without_httpd else None
-        self.srs_agent = SRSAgent(self.id) if not self.without_srs  else None
+        if not self.without_httpd:
+            self.httpd = instantiate(self.httpd_cls, addrport)
+        if not self.without_srs:
+            self.srs = instantiate(self.srs_cls, self.id)
+        self.controller = instantiate(self.controller_cls, self.id)
 
-        components = [self.httpd, supervisor, self.srs_agent]
+        components = [self.httpd, supervisor, self.srs, self.controller]
         self.components = list(filter(None, components))
         super(Agent, self).__init__()
 
