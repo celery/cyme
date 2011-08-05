@@ -22,6 +22,11 @@ class Agent(gThread):
             logfile=None, without_httpd=False, without_srs=False,
             **kwargs):
         self.id = id or gen_unique_id()
+        if isinstance(addrport, basestring):
+            addr, _, port = addrport.partition(":")
+            if port:
+                port = int(port)
+            addrport = (addr, port)
         self.addrport = addrport
         self.without_httpd = without_httpd
         self.without_srs = without_srs

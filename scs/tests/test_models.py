@@ -78,11 +78,7 @@ class test_Node(unittest.TestCase):
         Node.objects.remove(n)
 
     def test_with_queues(self):
-        n = Node.objects.add(queues="foo,bar,baz")
-        self.assertListEqual(list(sorted(q.name
-                                            for q in n.queues.enabled())),
-                         ["bar", "baz", "foo"])
-
+        Node.objects.add(queues="foo,bar,baz")
         Node.objects.add_queue("foo")
         Node.objects.add_queue("xaz")
 

@@ -1,4 +1,3 @@
-import eventlet
 import logging
 import sys
 

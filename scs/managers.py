@@ -37,7 +37,7 @@ class NodeManager(ExtendedManager):
             if not isinstance(queue, Queue):
                 queue, _ = Queue._default_manager.get_or_create(name=queue)
             acc.append(queue)
-        return acc
+        return [q.name for q in acc]
 
     def add(self, nodename=None, queues=None, max_concurrency=1,
             min_concurrency=1, broker=None):

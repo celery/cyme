@@ -1,8 +1,6 @@
 import os
 from math import ceil
 
-from celery.datastructures import TokenBucket
-from celery.utils.timeutils import rate
 from kombu.utils import cached_property
 
 
@@ -32,4 +30,3 @@ class df(object):
     @cached_property
     def stat(self):
         return os.statvfs(self.path)
-

@@ -1,65 +1,84 @@
-from kombu import Exchange, Queue
+from kombu import Exchange
+from kombu.utils import cached_property
 
+from scs import signals
 from scs.consumer import gConsumer
+from scs.messaging import ModelConsumer, RPC, Actions
 from scs.models import Node, Queue as Q
 
 
+class ModelRPC(RPC):
+    model = None
+    sigmap = {}
+
+    def __init__(self, context=None):
+        if not self.name:
+            self.name = self.model.__name__
+        super(ModelRPC, self).__init__(context)
+
+    def Consumer(self, channel, **kwargs):
+        return ModelConsumer(channel, self.exchange,
+                             callbacks=[self.on_message],
+                             sigmap=self.sigmap, model=self.model,
+                             **kwargs)
+
+
+class NodeRPC(ModelRPC):
+    model = Node
+    exchange = Exchange("scs.nodes")
+    sigmap = {"on_create": signals.node_started,
+              "on_delete": signals.node_stopped}
+
+    class actions(Actions):
+
+        def add_consumer(self, name, queue):
+            pass
+
+
+class QRPC(ModelRPC):
+    model = Q
+    exchange = Exchange("scs.queues")
+
+    class actions(Actions):
+
+        def get(self, name):
+            try:
+                return Q.objects.get(name=name).as_dict()
+            except Q.DoesNotExist:
+                raise KeyError(name)
+
+        def add(self, name, **declaration):
+            return Q.objects.add(name, **declaration).as_dict()
+
+        def delete(self, name):
+            Q.objects.filter(name=name).delete()
+
+    def get(self, name):
+        try:
+            # see if we have the queue locally.
+            return self.actions.get(name)
+        except KeyError:
+            # if not, ask the cluster.
+            return self.call("get", args={"name": name})
+
+
 class Controller(gConsumer):
-    node_control_exchange = Exchange("scs.nodes")
-    node_control_consumer = None
-    node_control = set()
-    q_control_exchange = Exchange("scs.queues")
-    q_control_consumer = None
-    q_control = set()
 
     def __init__(self, id):
         self.id = id
         super(Controller, self).__init__()
 
-    def when_node_enabled(self, node):
-        self.node_control.add(
-            self.node_control_consumer.add_queue(
-                self.create_node_queue(node.name)))
+    def get_consumers(self, Consumer, chan):
+        return [cls.Consumer(chan) for cls in self.rpc_classes]
 
-    def when_node_disabled(self, node):
-        queue = self.find_queue_by_rkey(node.name, self.node_control)
-        if queue:
-            self.node_control_consumer.cancel_by_queue(queue.name)
+    @cached_property
+    def nodes(self):
+        return NodeRPC()
 
-    def when_queue_added(self, queue):
-        self.q_control.add(
-                self.q_control_consumer.add_queue(
-                    self.create_q_queue(queue.name)))
+    @cached_property
+    def qs(self):
+        return QRPC()
 
-    def when_queue_removed(self, q):
-        queue = self.find_queue_by_rkey(q.name, self.q_control)
-        if queue:
-            self.q_control_consumer.cancel_by_queue(queue.name)
-
-    def create_node_control_consumer(self, Consumer):
-        self.sync_model_queues([node.name for node in Node.objects.enabled()],
-                               self.node_control, self.create_node_queue)
-        return Consumer(self.node_control, callbacks=[self.on_node_control])
-
-    def create_q_control_consumer(self, Consumer):
-        self.sync_model_queues([q.name for q in Q.objects.enabled()],
-                               self.q_control, self.create_q_queue)
-        return Consumer(self.q_control, callbacks=[self.on_q_control])
-
-    def create_node_queue(self, nodename):
-        return Queue(self.uuid(), self.node_control_exchange, nodename,
-                     auto_delete=True)
-
-    def create_q_queue(self, qname):
-        return Queue(self.uuid(), self.q_control_exchange, qname,
-                     auto_delete=True)
-
-    def get_consumers(self, Consumer):
-        return [self.create_node_control_consumer(Consumer),
-                self.create_q_control_consumer(Consumer)]
-
-    def on_node_control(self, body, message):
-        message.ack()
-
-    def on_q_control(self, body, message):
-        message.ack()
+    @cached_property
+    def rpc_classes(self):
+        return [self.nodes, self.qs]

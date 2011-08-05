@@ -5,6 +5,7 @@ from kombu.utils import cached_property
 
 class State(object):
     broker_last_revived = None
+    controller = None
 
     def on_broker_revive(self, *args, **kwargs):
         self.broker_last_revived = time()

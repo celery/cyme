@@ -15,10 +15,10 @@ from kombu.utils import cached_property
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
+from scs import conf
+from scs import signals
 from scs.managers import BrokerManager, NodeManager, QueueManager
 from scs.utils import shellquote
-
-CWD = "/var/run/scs"
 
 logger = logging.getLogger("Node")
 
@@ -71,22 +71,15 @@ class Queue(models.Model):
     objects = QueueManager()
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
-
     exchange = models.CharField(_(u"exchange"), max_length=128,
                                 default=None, null=True, blank=True)
-
     exchange_type = models.CharField(_(u"exchange type"), max_length=128,
                                      default=None, null=True, blank=True)
-
     routing_key = models.CharField(_(u"routing key"), max_length=128,
                                    default=None, null=True, blank=True)
-
     options = models.TextField(null=True, blank=True)
-
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
-
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
-
 
     class Meta:
         verbose_name = _(u"queue")
@@ -112,10 +105,10 @@ class Node(models.Model):
 
     objects = NodeManager()
     mutex = Lock()
-    cwd = CWD
+    cwd = conf.SCS_INSTANCE_DIR
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
-    queues = models.ManyToManyField(Queue, null=True, blank=True)
+    _queues = models.TextField(_(u"queues"), null=True, blank=True)
     max_concurrency = models.IntegerField(_(u"max concurrency"), default=1)
     min_concurrency = models.IntegerField(_(u"min concurrency"), default=1)
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
@@ -132,7 +125,7 @@ class Node(models.Model):
     def as_dict(self):
         """Returns a JSON serializable version of this node."""
         return {"name": self.name,
-                "queues": [q.as_dict() for q in self.queues.enabled()],
+                "queues": self.queues,
                 "max_concurrency": self.max_concurrency,
                 "min_concurrency": self.min_concurrency,
                 "is_enabled": self.is_enabled,
@@ -158,15 +151,21 @@ class Node(models.Model):
 
     def start(self, **kwargs):
         """Starts the instance."""
-        return self._action("start", **kwargs)
+        r = self._action("start", **kwargs)
+        signals.node_started.send(sender=self, instance=self)
+        return r
 
     def stop(self, **kwargs):
         """Shuts down the instance."""
-        return self._action("stop", **kwargs)
+        r = self._action("stop", **kwargs)
+        signals.node_stopped.send(sender=self, instance=self)
+        return r
 
     def restart(self, **kwargs):
         """Restarts the instance."""
-        return self._action("restart", **kwargs)
+        r = self._action("restart", **kwargs)
+        signals.node_started.send(sender=self, instance=self)
+        return r
 
     def alive(self, **kwargs):
         """Returns :const:`True` if the pid responds to signals,
@@ -321,3 +320,40 @@ class Node(models.Model):
         if self._broker is None:
             return self.Broker._default_manager.get_default()
         return self._broker
+
+    def _get_queues(self):
+        node = self
+
+        class Queues(list):
+
+            def add(self, queue):
+                self.append(queue)
+                self._update_obj()
+
+            def remove(self, queue):
+                try:
+                    list.remove(self, queue)
+                except ValueError:
+                    pass
+                self._update_obj()
+
+            def as_str(self):
+
+                def mq(q):
+                    if isinstance(q, Queue):
+                        return q.name
+                    return q
+
+                return ",".join(map(mq, self))
+
+            def _update_obj(self):
+                node.queues = self.as_str()
+
+        return Queues(q for q in (self._queues or "").split(",") if q)
+
+    def _set_queues(self, queues):
+        if not isinstance(queues, basestring):
+            queues = ",".join(queues)
+        self._queues = queues
+
+    queues = property(_get_queues, _set_queues)

@@ -39,14 +39,14 @@ class NodeAdmin(admin.ModelAdmin):
     fieldsets = (
             (None, {
                 "fields": ("name", "max_concurrency", "min_concurrency",
-                           "queues", "is_enabled", "_broker"),
+                           "_queues", "is_enabled", "_broker"),
                 "classes": ("extrapretty", ),
             }), )
     list_display = (fixedwidth("name", pt=10), maxmin_concurrency,
                     status, "broker")
     read_only_fields = ("created_at", )
-    list_filter = ("name", "max_concurrency", "min_concurrency", "queues")
-    search_fields = ("name", "max_concurrency", "min_concurrency", "queues")
+    list_filter = ("name", "max_concurrency", "min_concurrency", "_queues")
+    search_fields = ("name", "max_concurrency", "min_concurrency", "_queues")
     actions = ["disable_nodes",
                "enable_nodes",
                "restart_nodes"]

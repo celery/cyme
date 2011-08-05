@@ -31,6 +31,11 @@ Options
 
     Set custom logfile path. Default is :file:`<stderr>`
 
+.. cmdoption:: -D, --instance-dir
+
+    Custom instance directory (deafult is /var/run/scs)
+    Must be writeable by the user scs-agent runs as.
+
 """
 
 from __future__ import absolute_import
@@ -42,7 +47,7 @@ from optparse import make_option as Option
 from celery.utils import LOG_LEVELS
 from djcelery.management.base import CeleryCommand
 
-from scs.agent import Agent
+from django.conf import settings
 
 
 class Command(CeleryCommand):
@@ -72,6 +77,10 @@ class Command(CeleryCommand):
               default=None,
               action="store", dest="logfile",
               help="Path to log file, stderr by default."),
+       Option('-D', '--instance-dir',
+              default=None,
+              action="store", dest="instance_dir",
+              help="Custom instance dir. Default is /var/run/scs"),
     )
 
     help = 'Starts the SCS agent'
@@ -81,6 +90,9 @@ class Command(CeleryCommand):
     def handle(self, *args, **kwargs):
         """Handle the management command."""
         loglevel = kwargs.get("loglevel")
+        instance_dir = kwargs.get("instance_dir")
+        if instance_dir:
+            settings.SCS_INSTANCE_DIR = instance_dir
         if not isinstance(loglevel, int):
             try:
                 loglevel = LOG_LEVELS[loglevel.upper()]
@@ -89,6 +101,7 @@ class Command(CeleryCommand):
                             loglevel, "|".join(l for l in LOG_LEVELS.keys()
                                         if isinstance(l, basestring))))
         kwargs["loglevel"] = loglevel
+        from scs.agent import Agent
         Agent(*args, **kwargs).start().wait()
 
     def die(self, msg, exitcode=1):

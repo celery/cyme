@@ -8,8 +8,13 @@ from kombu.utils import cached_property
 
 from scs import metrics
 from scs.consumer import gConsumer
+from scs.messaging import ModelConsumer
 from scs.utils import rfc2822
 from scs.models import Node
+
+
+class NodeConsumer(ModelConsumer):
+    model = Node
 
 
 class SRSAgent(gConsumer):
@@ -133,25 +138,18 @@ class SRSAgent(gConsumer):
                              auto_delete=True)
         self._query = Queue(self.id, self.query_exchange, auto_delete=True)
         self.instance_update_consumer = None
-        self.instance_updates = set()
         super(SRSAgent, self).__init__()
 
-    def get_consumers(self, Consumer):
-        self.sync_model_queues([node.name for node in Node.objects.enabled()],
-                               self.instance_updates,
-                               self.create_update_queue)
-        self.instance_update_consumer = Consumer(self.instance_updates,
-                                                 callbacks=[self.on_updating])
+    def get_consumers(self, Consumer, channel):
+        self.instance_update_consumer = NodeConsumer(channel,
+                                            self.update_exchange,
+                                            callbacks=[self.on_updating])
         return (Consumer(self._create, callbacks=[self.on_updating]),
                 Consumer(self._query, callbacks=[self.on_query]),
                 self.instance_update_consumer)
 
     def before(self):
         self.start_periodic_timer(15, self.publish_stats)
-
-    def create_update_queue(self, nodename):
-        return Queue(self.uuid(), self.update_exchange, nodename,
-                     auto_delete=True)
 
     def get_instance_stats(self):
         return dict((node.name, node.stats())
@@ -168,16 +166,11 @@ class SRSAgent(gConsumer):
 
     def on_create(self, body, message):
         node = self.cluster.add(**body)
-        self.instance_updates.add(
-                self.instance_update_consumer.add_queue(
-                    self.create_update_queue(node.name)))
-        self.instance_update_consumer.consume()
+        self.instance_update_consumer.on_create(node)
         message.ack()
 
     def _disable_instance_updates_for(self, node):
-        queue = self.find_queue_by_rkey(node.name, self.instance_updates)
-        if queue:
-            self.instance_update_consumer.cancel_by_queue(queue.name)
+        self.instance_update_consumer.on_delete(node)
 
     def on_updating(self, body, message):
         message.ack()
