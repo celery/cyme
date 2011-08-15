@@ -3,3 +3,4 @@ django-celery
 django-piston
 eventlet
 dnspython
+git+http://github.com/ask/cl#egg=celery
