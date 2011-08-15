@@ -1,9 +1,13 @@
+"""scs.views"""
+
+from __future__ import absolute_import
+
 from django.http import HttpResponseRedirect
 from django.shortcuts import render_to_response
 from django.template import RequestContext
 
-from scs.models import Node
-from scs.agent import cluster
+from .models import Node
+from .agent import cluster
 
 
 def index(request, template_name="scs/index.html"):

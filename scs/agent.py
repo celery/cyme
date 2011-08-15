@@ -1,12 +1,17 @@
+"""scs.agent"""
+
+from __future__ import absolute_import
+
 import logging
 
 from celery import current_app as celery
 from celery.utils import instantiate
 from kombu.utils import gen_unique_id
 
-from scs.models import Broker, Node
-from scs.supervisor import supervisor
-from scs.thread import gThread
+from .models import Broker, Node
+from .supervisor import supervisor
+from .state import state
+from .thread import gThread
 
 
 class Agent(gThread):
@@ -24,10 +29,10 @@ class Agent(gThread):
         self.id = id or gen_unique_id()
         if isinstance(addrport, basestring):
             addr, _, port = addrport.partition(":")
-            if port:
-                port = int(port)
+            port = int(port) if port else 8000
             addrport = (addr, port)
         self.addrport = addrport
+        self.connection = celery.broker_connection()
         self.without_httpd = without_httpd
         self.without_srs = without_srs
         self.logfile = logfile
@@ -35,14 +40,17 @@ class Agent(gThread):
         if not self.without_httpd:
             self.httpd = instantiate(self.httpd_cls, addrport)
         if not self.without_srs:
-            self.srs = instantiate(self.srs_cls, self.id)
-        self.controller = instantiate(self.controller_cls, self.id)
+            self.srs = instantiate(self.srs_cls,
+                                   id=self.id, connection=self.connection)
+        self.controller = instantiate(self.controller_cls,
+                                      id=self.id, connection=self.connection)
 
-        components = [self.httpd, supervisor, self.srs, self.controller]
+        components = [self.httpd, self.srs, supervisor, self.controller]
         self.components = list(filter(None, components))
         super(Agent, self).__init__()
 
     def run(self):
+        state.is_agent = True
         celery.log.setup_logging_subsystem(loglevel=self.loglevel,
                                            logfile=self.logfile)
         self.info("Starting with id %r" % (self.id, ))
@@ -59,13 +67,17 @@ class Cluster(object):
     Brokers = Broker._default_manager
     supervisor = supervisor
 
+    def _maybe_wait(self, g, nowait):
+        if not nowait:
+            return g.wait()
+
     def get(self, nodename):
         return self.Nodes.get(name=nodename)
 
     def add(self, nodename=None, queues=None,
             max_concurrency=1, min_concurrency=1, hostname=None,
             port=None, userid=None, password=None, virtual_host=None,
-            **kwargs):
+            nowait=False, **kwargs):
         broker = None
         if hostname:
             broker = self.Brokers.get_or_create(
@@ -74,34 +86,50 @@ class Cluster(object):
                             virtual_host=virtual_host)
         node = self.Nodes.add(nodename, queues, max_concurrency,
                               min_concurrency, broker)
-        self.supervisor.verify([node]).wait()
+        self._maybe_wait(self.supervisor.verify([node]), nowait)
         return node
 
     def modify(self, nodename, queues=None, max_concurrency=None,
-                                            min_concurrency=None):
+            min_concurrency=None, nowait=False):
         node = self.Nodes.modify(nodename, queues, max_concurrency,
                                                    min_concurrency)
-        self.supervisor.verify([node]).wait()
+        self._maybe_wait(self.supervisor.verify([node]), nowait)
         return node
 
-    def remove(self, nodename):
+    def remove(self, nodename, nowait=False):
         node = self.Nodes.remove(nodename)
-        self.supervisor.stop([node]).wait()
+        self._maybe_wait(self.supervisor.stop([node]), nowait)
         return node
 
-    def restart(self, nodename):
+    def restart(self, nodename, nowait=False):
         node = self.get(nodename)
-        self.supervisor.restart([node]).wait()
+        self._maybe_wait(self.supervisor.restart([node]), nowait)
         return node
 
-    def enable(self, nodename):
+    def enable(self, nodename, nowait=False):
         node = self.Nodes.enable(nodename)
-        self.supervisor.verify([node]).wait()
+        self._maybe_wait(self.supervisor.verify([node]), nowait)
         return node
 
-    def disable(self, nodename):
+    def disable(self, nodename, nowait=False):
         node = self.Nodes.disable(nodename)
-        self.supervisor.verify([node]).wait()
+        self._maybe_wait(self.supervisor.verify([node]), nowait)
         return node
 
+    def add_consumer(self, name, queue, nowait=False):
+        node = self.get(name)
+        node.queues.add(queue)
+        node.save()
+        self._maybe_wait(self.supervisor.verify([node]), nowait)
+        return node
+
+    def cancel_consumer(self, name, queue, nowait=False):
+        nodes = self.Nodes.remove_queue_from_nodes(queue, name=name)
+        if nodes:
+            self._maybe_wait(self.supervisor.verify(nodes), nowait)
+        return nodes
+
+    def remove_queue(self, queue, nowait=False):
+        nodes = self.Nodes.remove_queue_from_nodes(queue)
+        self._maybe_wait(self.supervisor.verify(nodes), nowait)
 cluster = Cluster()

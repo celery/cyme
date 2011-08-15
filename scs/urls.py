@@ -1,12 +1,15 @@
+"""scs.urls"""
+
+from __future__ import absolute_import
+
+from django.contrib import admin
 from django.conf.urls.defaults import (patterns, include, url,  # noqa
                                        handler500, handler404)
 
-from django.contrib import admin
-
 from piston.resource import Resource
 
-from scs import views
-from scs import api
+from . import api
+from . import views
 
 admin.autodiscover()
 

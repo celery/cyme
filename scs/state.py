@@ -1,3 +1,7 @@
+"""scs.state"""
+
+from __future__ import absolute_import
+
 from time import time
 
 from kombu.utils import cached_property
@@ -6,6 +10,9 @@ from kombu.utils import cached_property
 class State(object):
     broker_last_revived = None
     controller = None
+
+    #: set to true if the process is an scs-agent
+    is_agent = False
 
     def on_broker_revive(self, *args, **kwargs):
         self.broker_last_revived = time()
@@ -17,7 +24,7 @@ class State(object):
 
     @cached_property
     def supervisor(self):
-        from scs.supervisor import supervisor
+        from .supervisor import supervisor
         return supervisor
 
 state = State()

@@ -1,9 +1,13 @@
+"""scs.api"""
+
+from __future__ import absolute_import
+
 from piston.handler import BaseHandler
 
 from kombu.utils import cached_property
 
-from scs.agent import Cluster
-from scs.models import Node, Queue
+from .agent import Cluster
+from .models import Node, Queue
 
 
 class QueueHandler(BaseHandler):

@@ -118,7 +118,7 @@ setup(
     zip_safe=False,
     install_requires=[
         "Django",
-        "django-celery",
+        "django-celery>=2.3.0",
         "django-piston",
         "eventlet",
         "dnspython",

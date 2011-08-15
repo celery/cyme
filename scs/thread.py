@@ -1,17 +1,25 @@
+"""scs.thread"""
+
+from __future__ import absolute_import
+
 import logging
 import sys
 
 from celery.utils.encoding import safe_str
 from eventlet import greenthread
 
+from cl.log import LogMixin
 
-class gThread(object):
+
+class gThread(LogMixin):
     name = None
 
     def __init__(self):
         if self.name is None:
             self.name = self.__class__.__name__
-        self.logger = logging.getLogger(self.name)
+
+    def run(self):
+        raise NotImplementedError("gThreads must implement 'run'")
 
     def before(self):
         pass
@@ -38,21 +46,6 @@ class gThread(object):
                 greenthread.spawn_after(interval, _re, interval=interval)
         return greenthread.spawn_after(interval, _re, interval=interval)
 
-    def run(self):
-        raise NotImplementedError("gThreads must implement 'run'")
-
-    def debug(self, *args, **kwargs):
-        return self._log(logging.DEBUG, *args, **kwargs)
-
-    def info(self, *args, **kwargs):
-        return self._log(logging.INFO, *args, **kwargs)
-
-    def warn(self, *args, **kwargs):
-        return self._log(logging.WARN, *args, **kwargs)
-
-    def error(self, *args, **kwargs):
-        return self._log(logging.ERROR, *args, **kwargs)
-
-    def _log(self, severity, *args, **kwargs):
-        body = "{%s} %s" % (self.name, " ".join(map(safe_str, args)))
-        return self.logger.log(severity, body, **kwargs)
+    @property
+    def logger_name(self):
+        return self.name

@@ -101,7 +101,7 @@ class Command(CeleryCommand):
                             loglevel, "|".join(l for l in LOG_LEVELS.keys()
                                         if isinstance(l, basestring))))
         kwargs["loglevel"] = loglevel
-        from scs.agent import Agent
+        from ..agent import Agent
         Agent(*args, **kwargs).start().wait()
 
     def die(self, msg, exitcode=1):

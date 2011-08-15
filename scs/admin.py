@@ -1,3 +1,6 @@
+"""scs.admin"""
+from __future__ import absolute_import
+
 from django.contrib import admin
 from django.utils.html import escape
 from django.utils.translation import ugettext_lazy as _
@@ -5,8 +8,8 @@ from django.utils.translation import ugettext_lazy as _
 from djcelery.admin_utils import action, display_field, fixedwidth
 from djcelery.utils import naturaldate
 
-from scs.models import Broker, Node, Queue
-from scs.supervisor import supervisor
+from .models import Broker, Node, Queue
+from .supervisor import supervisor
 
 
 @display_field(_("max/min concurrency"), "max_concurrency")

@@ -1,3 +1,7 @@
+"""scs.supervisor"""
+
+from __future__ import absolute_import, with_statement
+
 import logging
 import sys
 
@@ -13,9 +17,9 @@ from kombu.utils import fxrangemax
 
 from django.db.models import signals
 
-from scs.models import Node
-from scs.state import state
-from scs.thread import gThread
+from .models import Node
+from .state import state
+from .thread import gThread
 
 
 logger = logging.getLogger("Supervisor")
@@ -237,7 +241,7 @@ class Supervisor(gThread):
     def _verify_node_queues(self, node):
         """Verify that the queues the node is consuming from matches
         the queues listed in the model."""
-        queues = set(queue.name for queue in node.queues.enabled())
+        queues = set(node.queues)
         reply = ib(node.consuming_from)
         if reply is None:
             return

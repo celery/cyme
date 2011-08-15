@@ -1,23 +1,29 @@
-from __future__ import absolute_import
-from __future__ import with_statement
+"""scs.srs"""
+
+from __future__ import absolute_import, with_statement
 
 from datetime import datetime
 
 from kombu import Exchange, Queue
 from kombu.utils import cached_property
 
-from scs import metrics
-from scs.consumer import gConsumer
-from scs.messaging import ModelConsumer
-from scs.utils import rfc2822
-from scs.models import Node
+from cl.common import maybe_declare, send_reply, uuid
+from cl.consumers import ConsumerMixin
+from cl.pools import producers
+
+from .. import metrics
+from ..messaging import ModelConsumer
+from ..thread import gThread
+from ..utils import rfc2822
+from ..models import Node
+from ..state import state
 
 
 class NodeConsumer(ModelConsumer):
     model = Node
 
 
-class SRSAgent(gConsumer):
+class SRSAgent(ConsumerMixin, gThread):
     """The SRS Agent enables the SRS controller to communicate with this
     agent via AMQP.
 
@@ -126,15 +132,19 @@ class SRSAgent(gConsumer):
     stats_exchange = Exchange("srs.statistics",
                               "fanout", auto_delete=True)
 
+    #: Exchange we publish replies to.
+    reply_exchange = Exchange("reply", "direct")
+
     @property
     def create_exchange(self):
         """Create request exchange."""
         return Exchange("srs.create.%s" % (self.id, ),
                         "fanout", auto_delete=True)
 
-    def __init__(self, id):
+    def __init__(self, connection, id):
+        self.connection = connection
         self.id = id
-        self._create = Queue(self.uuid(), self.create_exchange,
+        self._create = Queue(uuid(), self.create_exchange,
                              auto_delete=True)
         self._query = Queue(self.id, self.query_exchange, auto_delete=True)
         self.instance_update_consumer = None
@@ -147,6 +157,9 @@ class SRSAgent(gConsumer):
         return (Consumer(self._create, callbacks=[self.on_updating]),
                 Consumer(self._query, callbacks=[self.on_query]),
                 self.instance_update_consumer)
+
+    def on_connection_revived(self):
+        state.on_broker_revive()
 
     def before(self):
         self.start_periodic_timer(15, self.publish_stats)
@@ -186,18 +199,18 @@ class SRSAgent(gConsumer):
         message.ack()
 
     def on_query(self, body, message):
-        self.send_reply(message, [n.as_dict()
-                                    for n in self.Nodes.enabled()])
+        send_reply(self.connection, self.reply_exchange,
+                   message, [n.as_dict() for n in self.Nodes.enabled()])
         message.ack()
 
     def publish_stats(self):
-        with self.producers.acquire(block=True) as producer:
-            self.maybe_declare(self.stats_exchange, producer.channel)
+        with producers[self.connection].acquire(block=True) as producer:
+            maybe_declare(self.stats_exchange, producer.channel)
             producer.publish(self.gather_stats(),
                              exchange=self.stats_exchange.name,
                              routing_key="")
 
     @cached_property
     def cluster(self):
-        from scs.agent import cluster
+        from ..agent import cluster
         return cluster

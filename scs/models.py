@@ -1,3 +1,5 @@
+"""scs.models"""
+
 from __future__ import absolute_import, with_statement
 
 import errno
@@ -15,10 +17,10 @@ from kombu.utils import cached_property
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
-from scs import conf
-from scs import signals
-from scs.managers import BrokerManager, NodeManager, QueueManager
-from scs.utils import shellquote
+from . import conf
+from . import signals
+from .managers import BrokerManager, NodeManager, QueueManager
+from .utils import shellquote
 
 logger = logging.getLogger("Node")
 
@@ -213,16 +215,20 @@ class Node(models.Model):
 
     def add_queue(self, q, **kwargs):
         """Add queue for this instance by name."""
-        if not isinstance(q, self.Queue):
-            q = self.Queue.objects.get(name=q)
-        options = deserialize(q.options) if q.options else {}
-        exchange = q.exchange if q.exchange else q.name
-        routing_key = q.routing_key if q.routing_key else q.name
-        return self._query("add_consumer", dict(queue=q.name,
-                                                exchange=exchange,
-                                                exchange_type=q.exchange_type,
-                                                routing_key=routing_key,
-                                                **options), **kwargs)
+        if isinstance(q, self.Queue):
+            q = q.as_dict()
+        else:
+            q = self.actors["Queue"].get(q)
+        name = q["name"]
+        options = deserialize(q["options"]) if q.get("options") else {}
+        exchange = q["exchange"] if q["exchange"] else name
+        routing_key = q["routing_key"] if q["routing_key"] else name
+        return self._query("add_consumer",
+                           dict(queue=q["name"],
+                                exchange=exchange,
+                                exchange_type=q["exchange_type"],
+                                routing_key=routing_key,
+                                **options), **kwargs)
 
     def cancel_queue(self, queue, **kwargs):
         """Cancel queue for this instance by :class:`Queue`."""
@@ -314,6 +320,11 @@ class Node(models.Model):
                  broker.password=%(password)s   \
                  broker.vhost=%(virtual_host)s  \
                 " % self.broker.as_dict()).split()
+
+    @cached_property
+    def actors(self):
+        from .controller import actors
+        return actors
 
     @property
     def broker(self):

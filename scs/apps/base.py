@@ -1,4 +1,6 @@
-from __future__ import with_statement
+"""scs.apps.base"""
+
+from __future__ import absolute_import, with_statement
 
 import eventlet
 eventlet.monkey_patch()
@@ -6,8 +8,8 @@ eventlet.monkey_patch()
 import sys
 import getpass
 
-from scs import settings as default_settings
-from scs.utils import imerge_settings
+from .. import settings as default_settings
+from ..utils import imerge_settings
 
 from django.conf import settings
 from django.core import management
@@ -53,5 +55,5 @@ def app(fun):
 
 
 def run_scs(argv):
-    from scs.management.commands import scs
+    from ..management.commands import scs
     scs.Command().run_from_argv([argv[0], "scs"] + argv[1:])

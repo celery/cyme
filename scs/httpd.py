@@ -1,3 +1,7 @@
+"""scs.httpd"""
+
+from __future__ import absolute_import
+
 import eventlet
 import os
 
@@ -6,7 +10,7 @@ from eventlet import wsgi
 from django.core.handlers import wsgi as djwsgi
 from django.core.servers.basehttp import AdminMediaHandler
 
-from scs.thread import gThread
+from .thread import gThread
 
 
 class SCSMediaHandler(AdminMediaHandler):

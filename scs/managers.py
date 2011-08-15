@@ -1,10 +1,11 @@
+"""scs.managers"""
+
+from __future__ import absolute_import
+
 from anyjson import serialize
 from celery import current_app as celery
 from celery.utils import gen_unique_id
-
 from djcelery.managers import ExtendedManager
-
-from scs.utils import maybe_list
 
 
 class BrokerManager(ExtendedManager):
@@ -81,38 +82,22 @@ class NodeManager(ExtendedManager):
         node.disable()
         return node
 
-    def add_queue(self, name, nodenames=None, exchange=None,
-            exchange_type=None, routing_key=None, **options):
-        options = serialize(options) if options else None
-        nodenames = maybe_list(nodenames)
-        queue = self.queues.update_or_create(name=name,
-                    defaults={"exchange": exchange,
-                              "exchange_type": exchange_type,
-                              "routing_key": routing_key,
-                              "options": options})
-        if nodenames:
-            self._add_queue_to_nodes(queue, name__in=nodenames)
-        else:
-            self._remove_queue_from_nodes(queue)
-            self._add_queue_to_nodes(queue)
-
-    def remove_queue(self, name, nodenames=None):
-        nodenames = maybe_list(nodenames)
-        queue = self.queues.get(name=name)
-        if nodenames:
-            self._remove_queue_from_nodes(queue, name__in=nodenames)
-        else:
-            self._remove_queue_from_nodes(queue)
-
-    def _remove_queue_from_nodes(self, queue, **query):
+    def remove_queue_from_nodes(self, queue, **query):
+        nodes = []
         for node in self.filter(**query).iterator():
-            node.queues.remove(queue)
-            node.save()
+            if queue in node.queues:
+                node.queues.remove(queue)
+                node.save()
+                nodes.append(node)
+        return nodes
 
-    def _add_queue_to_nodes(self, queue, **query):
+    def add_queue_to_nodes(self, queue, **query):
+        nodes = []
         for node in self.filter(**query).iterator():
             node.queues.add(queue)
             node.save()
+            nodes.append(node)
+        return nodes
 
     @property
     def Queue(self):
@@ -131,7 +116,9 @@ class QueueManager(ExtendedManager):
     def add(self, name, exchange=None, exchange_type=None,
             routing_key=None, **options):
         options = serialize(options) if options else None
-        return self.create(name=name, exchange=exchange,
-                           exchange_type=exchange_type,
-                           routing_key=routing_key,
-                           options=options)
+        q, _ = self.get_or_create(name=name,
+                                  defaults={"exchange": exchange,
+                                            "exchange_type": exchange_type,
+                                            "routing_key": routing_key,
+                                            "options": options})
+        return q
