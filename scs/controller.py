@@ -2,7 +2,8 @@
 
 from __future__ import absolute_import
 
-from cl import Actor, Agent
+from cl import Agent
+from cl.models import ModelActor
 from cl.utils import flatten
 from celery import current_app as celery
 from kombu import Exchange
@@ -11,7 +12,6 @@ from kombu.utils import cached_property
 from django.db.models.signals import post_delete, post_save
 
 from . import signals
-from .messaging import ModelConsumer
 from .models import Node, Queue
 from .state import state
 from .thread import gThread
@@ -25,37 +25,18 @@ def registered(cls):
     return cls
 
 
-class ModelActor(Actor):
-    #: The model this actor is a controller for (*required*).
-    model = None
+class SCSModelActor(ModelActor):
 
-    #: Map of signals to connect and corresponding actions.
-    sigmap = {}
-
-    def __init__(self, connection=None, id=None, name=None, *args, **kwargs):
-        if self.model is None:
-            raise NotImplementedError(
-                "ModelActors must define the 'model' attribute!")
-        if not name or self.name:
-            name = self.model.__name__
+    def __init__(self, *args, **kwargs):
+        super(SCSModelActor, self).__init__(*args, **kwargs)
 
         # retry publishing messages by default if running as scs-agent.
         self.retry = state.is_agent
-
-        super(ModelActor, self).__init__(connection, id, name, *args, **kwargs)
         self.default_fields = {"agent_id": self.id}
-
-    def Consumer(self, channel, **kwargs):
-        return ModelConsumer(channel, self.exchange,
-                             callbacks=[self.on_message],
-                             sigmap=self.sigmap, model=self.model,
-                             queues=[self.get_scatter_queue(),
-                                     self.get_rr_queue()],
-                             **kwargs)
 
 
 @registered
-class NodeActor(ModelActor):
+class NodeActor(SCSModelActor):
     model = Node
     exchange = Exchange("scs.nodes")
     sigmap = {"on_create": signals.node_started.connect,
@@ -151,7 +132,7 @@ class NodeActor(ModelActor):
 
 
 @registered
-class QueueActor(ModelActor):
+class QueueActor(SCSModelActor):
     model = Queue
     exchange = Exchange("scs.queues")
     sigmap = {"on_create": lambda f: post_save.connect(f, sender=Queue),

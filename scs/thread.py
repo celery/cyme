@@ -2,10 +2,8 @@
 
 from __future__ import absolute_import
 
-import logging
 import sys
 
-from celery.utils.encoding import safe_str
 from eventlet import greenthread
 
 from cl.log import LogMixin

@@ -9,10 +9,10 @@ from kombu.utils import cached_property
 
 from cl.common import maybe_declare, send_reply, uuid
 from cl.consumers import ConsumerMixin
+from cl.models import ModelConsumer
 from cl.pools import producers
 
 from .. import metrics
-from ..messaging import ModelConsumer
 from ..thread import gThread
 from ..utils import rfc2822
 from ..models import Node
