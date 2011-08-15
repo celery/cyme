@@ -218,7 +218,8 @@ class Node(models.Model):
         if isinstance(q, self.Queue):
             q = q.as_dict()
         else:
-            q = self.actors["Queue"].get(q)
+            from .controller import queues
+            q = queues.get(q)
         name = q["name"]
         options = deserialize(q["options"]) if q.get("options") else {}
         exchange = q["exchange"] if q["exchange"] else name
@@ -320,11 +321,6 @@ class Node(models.Model):
                  broker.password=%(password)s   \
                  broker.vhost=%(virtual_host)s  \
                 " % self.broker.as_dict()).split()
-
-    @cached_property
-    def actors(self):
-        from .controller import actors
-        return actors
 
     @property
     def broker(self):

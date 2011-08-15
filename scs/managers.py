@@ -113,12 +113,12 @@ class QueueManager(ExtendedManager):
     def enabled(self):
         return self.filter(is_enabled=True)
 
+    def _add(self, name, **declaration):
+        q, _ = self.get_or_create(name=name, defaults=declaration)
+        return q
+
     def add(self, name, exchange=None, exchange_type=None,
             routing_key=None, **options):
         options = serialize(options) if options else None
-        q, _ = self.get_or_create(name=name,
-                                  defaults={"exchange": exchange,
-                                            "exchange_type": exchange_type,
-                                            "routing_key": routing_key,
-                                            "options": options})
-        return q
+        return self._add(name, exchange=exchange, exchange_type=exchange_type,
+                               routing_key=routing_key, options=options)

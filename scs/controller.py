@@ -16,26 +16,19 @@ from .models import Node, Queue
 from .state import state
 from .thread import gThread
 
-actors = {}
-
-
-def registered(cls):
-    instance = cls(celery.broker_connection())
-    actors[instance.name] = instance
-    return cls
-
 
 class SCSModelActor(ModelActor):
 
-    def __init__(self, *args, **kwargs):
-        super(SCSModelActor, self).__init__(*args, **kwargs)
+    def __init__(self, connection=None, *args, **kwargs):
+        if not connection:
+            connection = celery.broker_connection()
+        super(SCSModelActor, self).__init__(connection, *args, **kwargs)
 
         # retry publishing messages by default if running as scs-agent.
         self.retry = state.is_agent
         self.default_fields = {"agent_id": self.id}
 
 
-@registered
 class NodeActor(SCSModelActor):
     model = Node
     exchange = Exchange("scs.nodes")
@@ -46,6 +39,9 @@ class NodeActor(SCSModelActor):
 
         def all(self):
             return [node.name for node in Node.objects.all()]
+
+        def get(self, name):
+            return self.agent.get(name).as_dict()
 
         def add(self, name=None, **kwargs):
             return self.agent.add(name, **kwargs).as_dict()
@@ -86,10 +82,16 @@ class NodeActor(SCSModelActor):
         def consuming_from(self, name):
             return self.agent.get(name).consuming_from()
 
+        def stats(self, name):
+            return self.agent.get(name).stats()
+
         @cached_property
         def agent(self):
-            from ..agent import cluster
+            from .agent import cluster
             return cluster
+
+    def get(self, name, **kw):
+        return self.send("get", {"name": name}, to=name, **kw)
 
     def all(self):
         return flatten(self.scatter("all"))
@@ -130,8 +132,11 @@ class NodeActor(SCSModelActor):
     def consuming_from(self, name, **kw):
         return self.send("consuming_from", {"name": name}, to=name, **kw)
 
+    def stats(self, name, **kw):
+        return self.send("stats", {"name": name}, to=name, **kw)
+nodes = NodeActor()
 
-@registered
+
 class QueueActor(SCSModelActor):
     model = Queue
     exchange = Exchange("scs.queues")
@@ -150,7 +155,7 @@ class QueueActor(SCSModelActor):
                 raise KeyError(name)
 
         def add(self, name, **declaration):
-            return Queue.objects.add(name, **declaration).as_dict()
+            return Queue.objects._add(name, **declaration).as_dict()
 
         def delete(self, name):
             Queue.objects.filter(name=name).delete()
@@ -171,12 +176,13 @@ class QueueActor(SCSModelActor):
         return self.throw("add", dict({"name": name}, **decl))
 
     def delete(self, name, **kw):
-        actors["Node"].remove_queue_from_all(name, nowait=True)
+        nodes.remove_queue_from_all(name, nowait=True)
         return self.send("delete", {"name": name}, to=name, **kw)
+queues = QueueActor()
 
 
 class Controller(Agent, gThread):
-    actors = actors.values()
+    actors = [NodeActor(), QueueActor()]
     connect_max_retries = celery.conf.BROKER_CONNECTION_MAX_RETRIES
 
     def __init__(self, *args, **kwargs):
