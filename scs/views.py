@@ -8,9 +8,6 @@ import sys
 import traceback
 
 from django.http import HttpResponse
-from django.shortcuts import render_to_response
-from django.template import RequestContext
-from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import View
 
 from anyjson import serialize

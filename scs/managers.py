@@ -56,7 +56,6 @@ class AppManager(ExtendedManager):
         return self.model.Broker._default_manager
 
 
-
 class NodeManager(ExtendedManager):
 
     def enabled(self):
