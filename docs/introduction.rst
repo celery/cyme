@@ -44,10 +44,10 @@ It is responsible for:
   as it finds inconsistencies.
 
 The supervisor is resilient to intermittent connection failures,
-and will autoretry any operation that is dependent on a broker.
+and will auto-retry any operation that is dependent on a broker.
 
 Since workers cannot respond to broadcast commands while the
-broker is offline, the supervisor will not restart affected
+broker is off-line, the supervisor will not restart affected
 instances until the instance has had a chance to reconnect (decided
 by the :attr:`wait_after_broker_revived` attribute).
 
@@ -85,15 +85,24 @@ Create a new application named ``foo``::
 
 
 Note that we can edit the broker connection details here
-by passing them in as POST data::
+by using a POST request::
 
     $ curl -X POST -i http://localhost/bar/ -d \
         'hostname=w1&userid=me&password=me&vhost=/'
 
 
-* Create a new Celery worker instance
+.. note::
 
-::
+    For convenience and full client support **PUT** can
+    be replaced with a **POST** instead, and it will result in the same
+    action being performed.
+
+    Also, for **POST**, **PUT** and **DELETE** the query part of the
+    URL can be used instead of actual post data.
+
+
+Create a new Celery worker instance::
+
     $ curl -X PUT -i http://localhost:8001/foo/instances/
     HTTP/1.1 201 CREATED
     Content-Type: application/json
@@ -167,6 +176,8 @@ Let's create a queue declaration for a queue named ``tasks``.
 This queue binds the exchange ``tasks`` with routing key ``tasks``.
 (note that the queue name will be used as both exchange name and routing key
 if these are not provided).
+
+Create the queue by performing the following request::
 
     $ curl -X POST -d 'exchange=tasks&routing_key=tasks' \
         -i http://localhost:8001/foo/queues/tasks/
@@ -252,7 +263,7 @@ Applications
 If hostname is not provided, then any other broker parameters
 will be ignored and the default broker will be used.
 
-* List all available applications::
+* List all available applications
 
 ::
   GET http://agent:port/
@@ -304,7 +315,7 @@ is an UUID).
 Queues
 ------
 
-* Create a new queue declaration by name::
+* Create a new queue declaration by name
 
 ::
     [PUT|POST] http://agent:port/<app>/queues/<name>/?exchange=str
@@ -319,7 +330,7 @@ binding options, for a full list of supported options see
 :meth:`kombu.compat.entry_to_queue`.
 
 
-* Get the declaration for a queue by name::
+* Get the declaration for a queue by name
 
 ::
     GET http://agent:port/<app>/queues/<name>/
@@ -379,7 +390,7 @@ or collect the return value.  The return value of the task is the HTTP
 response of the actual request performed by the worker.
 
 
-Examples::
+**Examples**::
 
     GET http://agent:port/<app>/queue/tasks/http://m/import_contacts?user=133
 
@@ -412,3 +423,27 @@ Querying Task State
 ::
 
     GET http://agent:port/<app>/query/<uuid>/wait/
+
+
+Instance details and statistics
+-------------------------------
+
+To get configuration details and statistics for a particular
+instance::
+
+    GET http://agent:port/<app>/instance/<name>/stats/
+
+
+Autoscale
+---------
+
+* To set the max/min concurrency settings of a node
+
+::
+    POST http://agent:port/<app>/instance/<name>/autoscale/?max=int
+                                                           ?min=int
+
+* To get the max/min concurrency settings of a node
+
+::
+    GET http://agent:port/<app>/instance/<name>/autoscale/
