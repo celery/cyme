@@ -12,7 +12,9 @@ from kombu.utils import cached_property
 
 from django.db.models.signals import post_delete, post_save
 
+from . import conf
 from . import signals
+from . import metrics
 from .models import App, Node, Queue
 from .state import state
 from .thread import gThread
@@ -60,12 +62,19 @@ class AppActor(SCSActor):
             except App.DoesNotExist:
                 raise self.Next()
 
+        def metrics(self):
+            return {"load_average": metrics.load_average(),
+                    "disk_use": metrics.df(conf.SCS_INSTANCE_DIR).capacity}
+
     def all(self):
         return flatten(self.scatter("all"))
 
     def add(self, name, **broker):
         self.scatter("add", dict({"name": name}, **broker), nowait=True)
         return self.state.add(name, **broker)
+
+    def metrics(self, name=None):
+        return list(self.scatter("metrics"))
 
     def get(self, name=None):
         if not name:

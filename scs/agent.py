@@ -17,15 +17,12 @@ from .thread import gThread
 class Agent(gThread):
     controller_cls = "scs.controller.Controller"
     httpd_cls = "scs.httpd.HttpServer"
-    srs_cls = "scs.srs.SRSAgent"
 
     httpd = None
-    srs = None
     controller = None
 
     def __init__(self, addrport="", id=None, loglevel=logging.INFO,
-            logfile=None, without_httpd=False, without_srs=False,
-            **kwargs):
+            logfile=None, without_httpd=False, **kwargs):
         self.id = id or gen_unique_id()
         if isinstance(addrport, basestring):
             addr, _, port = addrport.partition(":")
@@ -34,18 +31,14 @@ class Agent(gThread):
         self.addrport = addrport
         self.connection = celery.broker_connection()
         self.without_httpd = without_httpd
-        self.without_srs = without_srs
         self.logfile = logfile
         self.loglevel = loglevel
         if not self.without_httpd:
             self.httpd = instantiate(self.httpd_cls, addrport)
-        if not self.without_srs:
-            self.srs = instantiate(self.srs_cls,
-                                   id=self.id, connection=self.connection)
         self.controller = instantiate(self.controller_cls,
                                       id=self.id, connection=self.connection)
 
-        components = [self.httpd, self.srs, supervisor, self.controller]
+        components = [self.httpd, supervisor, self.controller]
         self.components = list(filter(None, components))
         super(Agent, self).__init__()
 

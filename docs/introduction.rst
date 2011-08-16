@@ -5,69 +5,62 @@
 .. contents::
     :local:
 
-Overview
+Synopsis
 ========
 
-The SCS agent manages Celery worker instances for a particular
-machine (virtual or physical).
+The SCS agent is a distributed application, where each instance
+handles the Celery worker nodes on a machine (physical or virtual).
+Distributed as in it reroutes messages to agents that can handle them,
+for example if the current agent does not hold the definition of a queue,
+it uses broadcast messaging to ask other agents for that information.
 
-Programs
---------
+Requirements
+============
 
-* :mod:`scs-agent <scs.management.commands.scs_agent>`.
+* Python 2.6 or later.
 
-Models
-------
+* `cl`_
+* `eventlet`_
+* `django`_
+* `django-celery`_
 
-* :class:`~scs.models.Node`.
-* :class:`~scs.models.Queue`.
-* :class:`~scs.models.Broker`.
+.. _`cl`: http://github.com/ask/cl
+.. _`eventlet`: http://pypi.python.org/pypi/eventlet
+.. _`django`: http://djangoproject.com/
+.. _`django-celery`: http://pypi.python.org/pypi/django-celery`
 
-Supervisor
-----------
-:see: :class:`~scs.supervisor.Supervisor`.
+.. note::
 
-The supervisor wakes up at intervals to monitor changes in the model.
-It can also be requested to perform specific operations, and these
-operations can be either async or sync.
-
-It is responsible for:
-
-* Stopping removed instances.
-* Starting new instances.
-* Restarting unresponsive/killed instances.
-* Making sure the instances consumes from the queues specified in the model,
-  sending ``add_consumer``/- ``cancel_consumer`` broadcast commands to the
-  nodes as it finds inconsistencies.
-* Making sure the max/min concurrency setting is as specified in the
-  model,  sending ``autoscale`` broadcast commands to the nodes
-  as it finds inconsistencies.
-
-The supervisor is resilient to intermittent connection failures,
-and will auto-retry any operation that is dependent on a broker.
-
-Since workers cannot respond to broadcast commands while the
-broker is off-line, the supervisor will not restart affected
-instances until the instance has had a chance to reconnect (decided
-by the :attr:`wait_after_broker_revived` attribute).
-
-
-HTTP
-----
-
-The http server currently serves up an admin instance
-where you can add, remove and modify instances.
-
-The http server can be disabled using the :option:`--without-http` option.
+    An updated list of requirements can always be found
+    in the :file:`requirements/` directory of the SCS distribution.
+    This directory contains pip requirements file for different
+    scenarios.
 
 Getting started
 ===============
 
+You can run as many agents as needed: one or multiple.
+It is also possible to run multiple agents on the same machine
+by specifying a custom HTTP port, and root directory for each
+agent.
+
 Start one or more agents::
 
+    $ sudo mkdir -p /var/run/scs
+    $ sudo chown $(whoami) /var/run/scs
+    $ sudo chmod 755 /var/run/scs
+
+    $ sudo mkdir -p /var/run/scs/agent1
     $ scs-agent :8001 -i agent1 -D /var/run/scs/agent1
 
+    $ sudo mkdir -p /var/run/scs/agent1
     $ scs-agent :8002 -i agent2 -D /var/run/scs/agent2
+
+
+The default HTTP port is 8000, and the default root directory
+is :file:`/var/run/scs/`.  The root directory must be writable
+by the user the agent is running as.  The logs and pid files of
+every worker node will be stored in this directory.
 
 Create a new application named ``foo``::
 
@@ -260,7 +253,7 @@ Applications
                                       ?password=str
                                       ?virtual_host=str
 
-If hostname is not provided, then any other broker parameters
+If ``hostname`` is not provided, then any other broker parameters
 will be ignored and the default broker will be used.
 
 * List all available applications
@@ -447,3 +440,100 @@ Autoscale
 
 ::
     GET http://agent:port/<app>/instance/<name>/autoscale/
+
+Components
+==========
+
+Programs
+--------
+
+* :mod:`scs-agent <scs.management.commands.scs_agent>`.
+
+    This runs an agent.
+
+* :mod:`scssh <scs.apps.sssh>`
+
+    This launches a Python REPL into the SCS environment.
+
+Models
+------
+
+The agent uses an SQLite database to store state,
+but this can also be another database system (MySQL, PostgreSQL, Oracle, DB2).
+
+App
+~~~
+:see: :class:`scs.models.App`.
+
+Every node belongs to an application, and the application
+contains the default broker configuration.
+
+Broker
+~~~~~~
+:see: :class:`scs.models.Broker`.
+
+The connection parameters for a specific broker (``hostname``, ``port``,
+``userid``, ``password``, ``virtual_host``)
+
+Node
+~~~~
+:see: :class:`scs.models.Node`.
+
+This describes a Celery worker node that should be running on this
+agent, the queues it should consume from and its max/min concurrency
+settings. It also describes what broker instance the node should be
+connecting to (which if not specified will default to the broker of the
+app the node belongs to).
+
+Queue
+~~~~~
+:see: :class:`scs.models.Queue`.
+
+A queue declaration: name, exchange, exchange type, routing key,
+and options.  Options is a json encoded mapping of queue, exchange and binding
+options supported by :func:`kombu.compat.entry_to_queue`.
+
+Supervisor
+==========
+:see: :mod:`scs.supervisor`.
+
+The supervisor wakes up at intervals to monitor for changes in the model.
+It can also be requested to perform specific operations, e.g.
+restart a node, add queues to node,
+and these operations can be either async or sync.
+
+It is responsible for:
+
+* Stopping removed instances.
+* Starting new instances.
+* Restarting unresponsive/killed instances.
+* Making sure the instances consumes from the queues specified in the model,
+  sending add_consumer/- cancel_consumer broadcast commands
+  to the nodes as it finds inconsistencies.
+* Making sure the max/min concurrency setting is as specified in
+  the model, sending autoscale broadcast commands to the nodes as it
+  finds inconsistencies.
+
+The supervisor is resilient to intermittent connection failures,
+and will auto-retry any operation that is dependent on a broker.
+
+Since workers cannot respond to broadcast commands while the broker
+is off-line, the supervisor will not restart affected instances
+until the instance has had a chance to reconnect
+(decided by the wait_after_broker_revived attribute).
+
+Controller
+==========
+:see: :mod:`scs.controller`.
+
+The controller is a series of `cl`_ actors to control applications,
+nodes and queues.  It is used by the HTTP interface, but can also
+be used directly.
+
+HTTP
+====
+
+The http server currently serves up an admin instance
+where you can add, remove and modify instances.
+
+The http server can be disabled using the :option:`--without-http` option.

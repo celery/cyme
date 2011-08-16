@@ -18,10 +18,6 @@ Options
 
     Disable the HTTP server thread.
 
-.. cmdoption:: --without-srs
-
-    Disable the SRS consumer thread.
-
 .. cmdoption:: -l, --loglevel
 
     Set custom log level. One of DEBUG/INFO/WARNING/ERROR/CRITICAL.
@@ -63,11 +59,6 @@ class Command(CeleryCommand):
                action="store_true",
                dest="without_httpd",
                help="Disable HTTP server"),
-       Option("--without-srs",
-              default=False,
-              action="store_true",
-              dest="without_srs",
-              help="Disable SRS consumer"),
        Option('-l', '--loglevel',
               default="INFO",
               action="store",

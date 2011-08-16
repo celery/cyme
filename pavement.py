@@ -27,6 +27,9 @@ def html(options):
     builtdocs = sphinx_builddir(options)
     builtdocs.move(destdir)
 
+@task
+def autodoc(options):
+    sh("contrib/release/doc4allmods scs")
 
 @task
 @needs("paver.doctools.html")
