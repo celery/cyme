@@ -1,6 +1,5 @@
-django
-django-celery
-django-piston
+cl
 eventlet
 dnspython
-git+http://github.com/ask/cl#egg=celery
+django
+django-celery

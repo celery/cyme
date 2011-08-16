@@ -12,7 +12,6 @@
     scs.controller
     scs.views
     scs.tasks
-    scs.api
     scs.apps.base
     scs.apps.scs_agent
     scs.apps.scssh
@@ -22,7 +21,6 @@
     scs.metrics
     scs.models
     scs.signals
-    scs.srs
     scs.state
     scs.supervisor
     scs.thread
