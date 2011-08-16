@@ -6,6 +6,7 @@ from anyjson import serialize
 from celery import current_app as celery
 from celery.utils import gen_unique_id
 from djcelery.managers import ExtendedManager
+from kombu.utils import cached_property
 
 
 class BrokerManager(ExtendedManager):
@@ -19,6 +20,41 @@ class BrokerManager(ExtendedManager):
                         port=conf.BROKER_PORT or 5672,
                         virtual_host=conf.BROKER_VHOST or "/")
         return broker
+
+
+class AppManager(ExtendedManager):
+
+    def from_json(self, name=None, broker=None):
+        return {"name": name, "broker": self.get_broker(**broker)}
+
+    def recreate(self, name=None, broker=None):
+        d = self.from_json(name, broker)
+        return self.get_or_create(name=d["name"],
+                                  defaults={"broker": d["broker"]})[0]
+
+    def instance(self, name=None, broker=None):
+        return self.model(**self.from_json(name, broker))
+
+    def get_broker(self, **kwargs):
+        if kwargs["hostname"]:
+            return self.Brokers.get_or_create(**kwargs)[0]
+
+    def add(self, name=None, hostname=None, port=None, userid=None,
+            password=None, virtual_host=None):
+        broker = None
+        if hostname:
+            broker = self.get_broker(hostname=hostname, port=port,
+                                     userid=userid, password=password,
+                                     virtual_host=virtual_host)
+        return self.get_or_create(name=name, defaults={"broker": broker})[0]
+
+    def get_default(self):
+        return self.get_or_create(name="scs")[0]
+
+    @cached_property
+    def Brokers(self):
+        return self.model.Broker._default_manager
+
 
 
 class NodeManager(ExtendedManager):
@@ -41,12 +77,13 @@ class NodeManager(ExtendedManager):
         return [q.name for q in acc]
 
     def add(self, nodename=None, queues=None, max_concurrency=1,
-            min_concurrency=1, broker=None):
+            min_concurrency=1, broker=None, app=None):
         nodename = nodename or gen_unique_id()
 
         node = self.create(name=nodename or gen_unique_id(),
                            max_concurrency=max_concurrency,
-                           min_concurrency=min_concurrency)
+                           min_concurrency=min_concurrency,
+                           app=app)
         needs_save = False
         if queues:
             node.queues = self._maybe_queues(queues)

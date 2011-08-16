@@ -77,7 +77,7 @@ class Cluster(object):
     def add(self, nodename=None, queues=None,
             max_concurrency=1, min_concurrency=1, hostname=None,
             port=None, userid=None, password=None, virtual_host=None,
-            nowait=False, **kwargs):
+            app=None, nowait=False, **kwargs):
         broker = None
         if hostname:
             broker = self.Brokers.get_or_create(
@@ -85,7 +85,7 @@ class Cluster(object):
                             userid=userid, password=password,
                             virtual_host=virtual_host)
         node = self.Nodes.add(nodename, queues, max_concurrency,
-                              min_concurrency, broker)
+                              min_concurrency, broker, app)
         self._maybe_wait(self.supervisor.verify([node]), nowait)
         return node
 
@@ -117,10 +117,16 @@ class Cluster(object):
         return node
 
     def add_consumer(self, name, queue, nowait=False):
+        print("+GET NODE")
         node = self.get(name)
+        print("-GET NODE")
+        print("+ADD QUEUE")
         node.queues.add(queue)
         node.save()
+        print("-ADD QUEUE")
+        print("+WAIT FOR SUPERVISOR")
         self._maybe_wait(self.supervisor.verify([node]), nowait)
+        print("-WAIT FOR SUPERVISOR")
         return node
 
     def cancel_consumer(self, name, queue, nowait=False):

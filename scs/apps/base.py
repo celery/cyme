@@ -3,7 +3,9 @@
 from __future__ import absolute_import, with_statement
 
 import eventlet
+import eventlet.debug
 eventlet.monkey_patch()
+#eventlet.debug.hub_prevent_multiple_readers(False)
 
 import sys
 import getpass

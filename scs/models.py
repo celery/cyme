@@ -12,6 +12,7 @@ from anyjson import deserialize
 from celery import current_app as celery
 from celery import platforms
 from celery.bin.celeryd_multi import MultiTool
+from cl.pools import connections
 from kombu.utils import cached_property
 
 from django.db import models
@@ -19,7 +20,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from . import conf
 from . import signals
-from .managers import BrokerManager, NodeManager, QueueManager
+from .managers import AppManager, BrokerManager, NodeManager, QueueManager
 from .utils import shellquote
 
 logger = logging.getLogger("Node")
@@ -63,9 +64,32 @@ class Broker(models.Model):
 
     @property
     def pool(self):
-        if self._pool is None:
-            self._pool = self.connection().Pool(celery.conf.BROKER_POOL_LIMIT)
-        return self._pool
+        return connections[self.connection()]
+
+
+class App(models.Model):
+    """Application"""
+    Broker = Broker
+    objects = AppManager()
+
+    name = models.CharField(_(u"name"), max_length=128, unique=True)
+    broker = models.ForeignKey(Broker, null=True, blank=True)
+
+    class Meta:
+        verbose_name = _(u"app")
+        verbose_name_plural = _(u"apps")
+
+    def __unicode__(self):
+        return self.name
+
+    def get_broker(self):
+        if self.broker is None:
+            return self.Broker._default_manager.get_default()
+        return self.broker
+
+    def as_dict(self):
+        return {"name": self.name,
+                "broker": self.get_broker().as_dict()}
 
 
 class Queue(models.Model):
@@ -101,6 +125,7 @@ class Queue(models.Model):
 
 class Node(models.Model):
     """A celeryd instance."""
+    App = App
     Broker = Broker
     Queue = Queue
     MultiTool = MultiTool
@@ -109,6 +134,7 @@ class Node(models.Model):
     mutex = Lock()
     cwd = conf.SCS_INSTANCE_DIR
 
+    app = models.ForeignKey(App)
     name = models.CharField(_(u"name"), max_length=128, unique=True)
     _queues = models.TextField(_(u"queues"), null=True, blank=True)
     max_concurrency = models.IntegerField(_(u"max concurrency"), default=1)
@@ -123,6 +149,14 @@ class Node(models.Model):
 
     def __unicode__(self):
         return self.name
+
+    def __init__(self, *args, **kwargs):
+        app = kwargs.get("app")
+        if app is None:
+            app = kwargs["app"] = self.App._default_manager.get_default()
+        if not isinstance(app, self.App):
+            kwargs["app"] = self.App._default_manager.get(name=app)
+        super(Node, self).__init__(*args, **kwargs)
 
     def as_dict(self):
         """Returns a JSON serializable version of this node."""
@@ -309,6 +343,7 @@ class Node(models.Model):
                 "--pidfile=%s" % (self.pidfile, ),
                 "--logfile=%s" % (self.logfile, ),
                 "--loglevel=DEBUG",
+                "--include=scs.tasks",
                 "--autoscale=%s,%s" % (self.max_concurrency,
                                        self.min_concurrency))
 
@@ -325,7 +360,7 @@ class Node(models.Model):
     @property
     def broker(self):
         if self._broker is None:
-            return self.Broker._default_manager.get_default()
+            return self.app.get_broker()
         return self._broker
 
     def _get_queues(self):
@@ -334,8 +369,9 @@ class Node(models.Model):
         class Queues(list):
 
             def add(self, queue):
-                self.append(queue)
-                self._update_obj()
+                if queue not in self:
+                    self.append(queue)
+                    self._update_obj()
 
             def remove(self, queue):
                 try:

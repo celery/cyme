@@ -273,11 +273,9 @@ class Supervisor(gThread):
     def connect_signals(self):
 
         def verify_on_changed(instance=None, **kwargs):
-            print("VERIFY ON CHANGED")
             self.verify([instance]).wait()
 
         def stop_on_delete(instance=None, **kwargs):
-            print("STOP ON DELETE")
             self.stop([instance]).wait()
 
         signals.post_save.connect(verify_on_changed)

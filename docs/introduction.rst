@@ -5,6 +5,61 @@
 .. contents::
     :local:
 
+Overview
+========
+
+The SCS agent manages Celery worker instances for a particular
+machine (virtual or physical).
+
+Programs
+--------
+
+* :mod:`scs-agent <scs.management.commands.scs_agent>`.
+
+Models
+------
+
+* :class:`~scs.models.Node`.
+* :class:`~scs.models.Queue`.
+* :class:`~scs.models.Broker`.
+
+Supervisor
+----------
+:see: :class:`~scs.supervisor.Supervisor`.
+
+The supervisor wakes up at intervals to monitor changes in the model.
+It can also be requested to perform specific operations, and these
+operations can be either async or sync.
+
+It is responsible for:
+
+* Stopping removed instances.
+* Starting new instances.
+* Restarting unresponsive/killed instances.
+* Making sure the instances consumes from the queues specified in the model,
+  sending ``add_consumer``/- ``cancel_consumer`` broadcast commands to the
+  nodes as it finds inconsistencies.
+* Making sure the max/min concurrency setting is as specified in the
+  model,  sending ``autoscale`` broadcast commands to the nodes
+  as it finds inconsistencies.
+
+The supervisor is resilient to intermittent connection failures,
+and will autoretry any operation that is dependent on a broker.
+
+Since workers cannot respond to broadcast commands while the
+broker is offline, the supervisor will not restart affected
+instances until the instance has had a chance to reconnect (decided
+by the :attr:`wait_after_broker_revived` attribute).
+
+
+HTTP
+----
+
+The http server currently serves up an admin instance
+where you can add, remove and modify instances.
+
+The http server can be disabled using the :option:`--without-http` option.
+
 Getting started
 ===============
 
@@ -14,8 +69,31 @@ Start one or more agents::
 
     $ scs-agent :8002 -i agent2 -D /var/run/scs/agent2
 
-Create a new Celery worker instance::
+Create a new application named ``foo``::
 
+    $ curl -X POST -i http://localhost:8001/foo/
+    HTTP/1.1 201 CREATED
+    Content-Type: application/json
+    Date: Mon, 15 Aug 2011 22:06:43 GMT
+    Transfer-Encoding: chunked
+
+    {"name": "foo", "broker": {"password": "guest",
+                               "hostname": "127.0.0.1",
+                               "userid": "guest",
+                               "port": 5672,
+                               "virtual_host": "/"}}
+
+
+Note that we can edit the broker connection details here
+by passing them in as POST data::
+
+    $ curl -X POST -i http://localhost/bar/ -d \
+        'hostname=w1&userid=me&password=me&vhost=/'
+
+
+* Create a new Celery worker instance
+
+::
     $ curl -X PUT -i http://localhost:8001/foo/instances/
     HTTP/1.1 201 CREATED
     Content-Type: application/json
@@ -86,7 +164,7 @@ Note that this will list instances for every agent, not just the agent you are
 currently speaking to over HTTP.
 
 Let's create a queue declaration for a queue named ``tasks``.
-This queue binds the the exchange ``tasks`` with routing key ``tasks``.
+This queue binds the exchange ``tasks`` with routing key ``tasks``.
 (note that the queue name will be used as both exchange name and routing key
 if these are not provided).
 
@@ -154,69 +232,183 @@ If the test was successful you can clean up after yourself by,
 The worker instance should now be shutdown by the agents supervisor.
 
 
-Overview
-========
 
-The SCS agent manages Celery worker instances for a particular
-machine (virtual or physical).
-
-Instances can be created, disabled, deleted and configured
-via an HTTP API.  The agent also ensures that all the instances
-it controls are actually running, and is running with the configuration
-described in the database.
+API Reference
+=============
 
 
-Programs
---------
+Applications
+------------
 
-* :mod:`scs-agent <scs.management.commands.scs_agent>`.
+* Create new named application
 
-Models
+::
+  [PUT|POST] http://agent:port/<name>/?hostname=str
+                                      ?port=int
+                                      ?userid=str
+                                      ?password=str
+                                      ?virtual_host=str
+
+If hostname is not provided, then any other broker parameters
+will be ignored and the default broker will be used.
+
+* List all available applications::
+
+::
+  GET http://agent:port/
+
+* Get the configuration for app by name
+
+::
+  GET http://agent:port/name/
+
+
+Instances
+---------
+
+* Create and start an anonymous instance associated with app
+
+::
+    [PUT|POST] http://agent:port/<app>/instances/
+
+
+This will return the details of the new id,
+including the instance name (which for anonymous instances
+is an UUID).
+
+
+* Create and start a named instance associated with app:
+
+::
+    [PUT|POST] http://agent:port/<app>/instances/<name>/
+
+
+* List all available instances associated with an app
+
+::
+
+    GET http://agent:port/<app>/
+
+* Get the details of an instance by name
+
+::
+    GET http://agent:port/<app>/instances/<name>/
+
+
+* Delete an instance by name.
+
+::
+    DELETE http://agent:port/<app>/instances/<name>/
+
+
+Queues
 ------
 
-* :class:`~scs.models.Node`.
-* :class:`~scs.models.Queue`.
-* :class:`~scs.models.Broker`.
+* Create a new queue declaration by name::
 
-Supervisor
-----------
-:see: :class:`~scs.supervisor.Supervisor`.
+::
+    [PUT|POST] http://agent:port/<app>/queues/<name>/?exchange=str
+                                                     ?exchange_type=str
+                                                     ?routing_key=str
+                                                     ?options=json dict
 
-The supervisor wakes up at intervals to monitor changes in the model.
-It can also be requested to perform specific operations, and these
-operations can be either async or sync.
-
-It is responsible for:
-
-* Stopping removed instances.
-* Starting new instances.
-* Restarting unresponsive/killed instances.
-* Making sure the instances consumes from the queues specified in the model,
-  sending ``add_consumer``/- ``cancel_consumer`` broadcast commands to the
-  nodes as it finds inconsistencies.
-* Making sure the max/min concurrency setting is as specified in the
-  model,  sending ``autoscale`` broadcast commands to the nodes
-  as it finds inconsistencies.
-
-The supervisor is resilient to intermittent connection failures,
-and will autoretry any operation that is dependent on a broker.
-
-Since workers cannot respond to broadcast commands while the
-broker is offline, the supervisor will not restart affected
-instances until the instance has had a chance to reconnect (decided
-by the :attr:`wait_after_broker_revived` attribute).
+``exchange`` and ``routing_key`` will default to the queue name if not
+provided, and ``exchange_type`` will default to ``direct``.
+``options`` is a json encoded mapping of additional queue, exchange and
+binding options, for a full list of supported options see
+:meth:`kombu.compat.entry_to_queue`.
 
 
-HTTP
-----
+* Get the declaration for a queue by name::
 
-The http server currently serves up an admin instance
-where you can add, remove and modify instances.
+::
+    GET http://agent:port/<app>/queues/<name>/
 
-The http server can be disabled using the :option:`--without-http` option.
+* Get a list of available queues
 
-SRS
----
-:see: :class:`~scs.srs.SRSAgent`
+::
+    GET http://agent:port/<app>/queues/
 
-The SRS agent can be disabled using the :option:`--without-srs` option.
+
+
+Consumers
+---------
+
+Every instance can consume from one or more queues.
+Queues are referred to by name, and there must exist a full declaration
+for that name.
+
+
+* Tell an instance by name to consume from queue by name
+
+::
+    [PUT|POST] http://agent:port/<app>/instances/<instance>/queues/<queue>/
+
+
+* Tell an instance by name to stop consuming from queue by name
+
+::
+    DELETE http://agent:port/<app>/instances/<instance>/queues/<queue>/
+
+
+
+
+Queueing Tasks
+--------------
+
+Queueing an URL will result in one of the worker nodes to execute that
+request as soon as possible.
+
+::
+
+    [verb] http://agent:port/<app>/queue/<queue>/<url>?get_data
+    post_data
+
+
+
+The ``verb`` can be any supported HTTP verb, such as
+``HEAD``, ``GET``, ``POST``, ``PUT``, ``DELETE``, ``TRACE``,
+``OPTIONS``, ``CONNECT``, and ``PATCH``.
+The worker will then use the same verb when performing the request.
+Any get and post data provided will also be forwarded.
+
+
+When you queue an URL a unique identifier is returned,
+you can use this identifier (called an UUID) to query the status of the task
+or collect the return value.  The return value of the task is the HTTP
+response of the actual request performed by the worker.
+
+
+Examples::
+
+    GET http://agent:port/<app>/queue/tasks/http://m/import_contacts?user=133
+
+
+    POST http://agent:port/<app>/queue/tasks/http://m/import_user
+    username=George Costanza
+    company=Vandelay Industries
+
+
+Querying Task State
+-------------------
+
+
+* To get the current state of a task
+
+::
+
+    GET http://agent:port/<app>/query/<uuid>/state/
+
+
+* To get the return value of a task
+
+::
+
+    GET http://agent:port/<app>/query/<uuid>/result/
+
+
+* To wait for a task to complete, and return its result.
+
+::
+
+    GET http://agent:port/<app>/query/<uuid>/wait/

@@ -2,8 +2,9 @@
 
 from __future__ import absolute_import
 
-from cl import Agent
+from cl import Actor
 from cl.models import ModelActor
+from cl.presence import AwareAgent
 from cl.utils import flatten
 from celery import current_app as celery
 from kombu import Exchange
@@ -12,21 +13,81 @@ from kombu.utils import cached_property
 from django.db.models.signals import post_delete, post_save
 
 from . import signals
-from .models import Node, Queue
+from .models import App, Node, Queue
 from .state import state
 from .thread import gThread
 
 
+def _init_actor(actor, base, connection=None, *args, **kwargs):
+    if not connection:
+        connection = celery.broker_connection()
+    super(base, actor).__init__(connection, *args, **kwargs)
+
+    # retry publishing messages by default if running as scs-agent.
+    actor.retry = state.is_agent
+    actor.default_fields = {"agent_id": actor.id}
+
+
+class SCSActor(Actor):
+
+    def __init__(self, *args, **kwargs):
+        _init_actor(self, SCSActor, *args, **kwargs)
+
+
 class SCSModelActor(ModelActor):
 
-    def __init__(self, connection=None, *args, **kwargs):
-        if not connection:
-            connection = celery.broker_connection()
-        super(SCSModelActor, self).__init__(connection, *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        _init_actor(self, SCSModelActor, *args, **kwargs)
 
-        # retry publishing messages by default if running as scs-agent.
-        self.retry = state.is_agent
-        self.default_fields = {"agent_id": self.id}
+
+class AppActor(SCSActor):
+    name = "App"
+    types = ("scatter", )
+    _cache = {}
+
+    class state:
+
+        def all(self):
+            return [app.name for app in App.objects.all()]
+
+        def add(self, name, **broker):
+            app = App.objects.add(name, **broker)
+            return app.as_dict()
+
+        def get(self, name):
+            try:
+                return App.objects.get(name=name).as_dict()
+            except App.DoesNotExist:
+                raise self.Next()
+
+    def all(self):
+        return flatten(self.scatter("all"))
+
+    def add(self, name, **broker):
+        self.scatter("add", dict({"name": name}, **broker), nowait=True)
+        return self.state.add(name, **broker)
+
+    def get(self, name=None):
+        if not name:
+            return App.objects.get_default()
+        if name not in self._cache:
+            app = self._get(name)
+            if state.is_agent:
+                # copy app to local
+                self._cache[name] = App.objects.recreate(**app)
+            else:
+                self._cache[name] = App.objects.instance(**app)
+        return self._cache[name]
+
+    def _get(self, name):
+        try:
+            return self.state.get(name)
+        except self.Next:
+            try:
+                return self.scatter("get", {"name": name}).next()
+            except StopIteration:
+                raise KeyError(name)
+apps = AppActor()
 
 
 class NodeActor(SCSModelActor):
@@ -34,31 +95,33 @@ class NodeActor(SCSModelActor):
     exchange = Exchange("scs.nodes")
     sigmap = {"on_create": signals.node_started.connect,
               "on_delete": signals.node_stopped.connect}
+    default_timeout = 10
 
     class state:
 
-        def all(self):
-            return [node.name for node in Node.objects.all()]
+        def all(self, app=None):
+            return [node.name for node in
+                        Node.objects.filter(app=apps.get(app))]
 
-        def get(self, name):
+        def get(self, name, app=None):
             return self.agent.get(name).as_dict()
 
-        def add(self, name=None, **kwargs):
-            return self.agent.add(name, **kwargs).as_dict()
+        def add(self, name=None, app=None, **kwargs):
+            return self.agent.add(name, app=apps.get(app), **kwargs).as_dict()
 
-        def remove(self, name):
+        def remove(self, name, app=None):
             self.agent.remove(name)
             return True
 
-        def restart(self, name):
+        def restart(self, name, app=None):
             self.agent.restart(name)
             return True
 
-        def enable(self, name):
+        def enable(self, name, app=None):
             self.agent.enable(name)
             return True
 
-        def disable(self, name):
+        def disable(self, name, app=None):
             self.agent.disable(name)
             return "ok"
 
@@ -77,7 +140,7 @@ class NodeActor(SCSModelActor):
         def autoscale(self, name, max=None, min=None):
             node = Node.objects.get(name=name)
             node.autoscale(max=max, min=min)
-            return [node.max_concurrency, node.min_concurrency]
+            return {"max": node.max_concurrency, "min": node.min_concurrency}
 
         def consuming_from(self, name):
             return self.agent.get(name).consuming_from()
@@ -90,14 +153,14 @@ class NodeActor(SCSModelActor):
             from .agent import cluster
             return cluster
 
-    def get(self, name, **kw):
-        return self.send("get", {"name": name}, to=name, **kw)
+    def get(self, name, app=None, **kw):
+        return self.send("get", {"name": name, "app": app}, to=name, **kw)
 
-    def all(self):
-        return flatten(self.scatter("all"))
+    def all(self, app=None):
+        return flatten(self.scatter("all", {"app": app}))
 
-    def add(self, name=None, nowait=False, **kwargs):
-        return self.throw("add", dict({"name": name}, **kwargs),
+    def add(self, name=None, app=None, nowait=False, **kwargs):
+        return self.throw("add", dict({"name": name, "app": app}, **kwargs),
                           nowait=nowait)
 
     def remove(self, name, **kw):
@@ -181,13 +244,19 @@ class QueueActor(SCSModelActor):
 queues = QueueActor()
 
 
-class Controller(Agent, gThread):
-    actors = [NodeActor(), QueueActor()]
+class Controller(AwareAgent, gThread):
+    actors = [AppActor(), NodeActor(), QueueActor()]
     connect_max_retries = celery.conf.BROKER_CONNECTION_MAX_RETRIES
 
     def __init__(self, *args, **kwargs):
-        Agent.__init__(self, *args, **kwargs)
+        AwareAgent.__init__(self, *args, **kwargs)
         gThread.__init__(self)
+
+    def on_awake(self):
+        # bind global actors to this agent,
+        # so precense can be used.
+        for actor in (apps, nodes, queues):
+            actor.agent = self
 
     def on_connection_revived(self):
         state.on_broker_revive()
