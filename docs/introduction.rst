@@ -33,7 +33,7 @@ Requirements
 
     An updated list of requirements can always be found
     in the :file:`requirements/` directory of the SCS distribution.
-    This directory contains pip requirements file for different
+    This directory contains pip requirements files for different
     scenarios.
 
 Getting started
@@ -247,6 +247,7 @@ Applications
 * Create new named application
 
 ::
+
   [PUT|POST] http://agent:port/<name>/?hostname=str
                                       ?port=int
                                       ?userid=str
@@ -259,11 +260,13 @@ will be ignored and the default broker will be used.
 * List all available applications
 
 ::
+
   GET http://agent:port/
 
 * Get the configuration for app by name
 
 ::
+
   GET http://agent:port/name/
 
 
@@ -273,6 +276,7 @@ Instances
 * Create and start an anonymous instance associated with app
 
 ::
+
     [PUT|POST] http://agent:port/<app>/instances/
 
 
@@ -284,6 +288,7 @@ is an UUID).
 * Create and start a named instance associated with app:
 
 ::
+
     [PUT|POST] http://agent:port/<app>/instances/<name>/
 
 
@@ -296,12 +301,14 @@ is an UUID).
 * Get the details of an instance by name
 
 ::
+
     GET http://agent:port/<app>/instances/<name>/
 
 
 * Delete an instance by name.
 
 ::
+
     DELETE http://agent:port/<app>/instances/<name>/
 
 
@@ -311,6 +318,7 @@ Queues
 * Create a new queue declaration by name
 
 ::
+
     [PUT|POST] http://agent:port/<app>/queues/<name>/?exchange=str
                                                      ?exchange_type=str
                                                      ?routing_key=str
@@ -326,13 +334,14 @@ binding options, for a full list of supported options see
 * Get the declaration for a queue by name
 
 ::
+
     GET http://agent:port/<app>/queues/<name>/
 
 * Get a list of available queues
 
 ::
-    GET http://agent:port/<app>/queues/
 
+    GET http://agent:port/<app>/queues/
 
 
 Consumers
@@ -346,15 +355,15 @@ for that name.
 * Tell an instance by name to consume from queue by name
 
 ::
+
     [PUT|POST] http://agent:port/<app>/instances/<instance>/queues/<queue>/
 
 
 * Tell an instance by name to stop consuming from queue by name
 
 ::
+
     DELETE http://agent:port/<app>/instances/<instance>/queues/<queue>/
-
-
 
 
 Queueing Tasks
@@ -433,12 +442,14 @@ Autoscale
 * To set the max/min concurrency settings of a node
 
 ::
+
     POST http://agent:port/<app>/instance/<name>/autoscale/?max=int
                                                            ?min=int
 
 * To get the max/min concurrency settings of a node
 
 ::
+
     GET http://agent:port/<app>/instance/<name>/autoscale/
 
 Components
