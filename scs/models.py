@@ -12,14 +12,15 @@ from anyjson import deserialize
 from celery import current_app as celery
 from celery import platforms
 from celery.bin.celeryd_multi import MultiTool
-from cl.pools import connections
-from kombu.utils import cached_property
+from cl.pools import connections, producers
+from eventlet import Timeout
 
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
 from . import conf
 from .managers import AppManager, BrokerManager, NodeManager, QueueManager
+from .utils import cached_property
 
 logger = logging.getLogger("Node")
 
@@ -63,6 +64,10 @@ class Broker(models.Model):
     @property
     def pool(self):
         return connections[self.connection()]
+
+    @property
+    def producers(self):
+        return producers[self.connection()]
 
 
 class App(models.Model):
@@ -280,15 +285,30 @@ class Node(models.Model):
 
     def _query(self, cmd, args={}, **kwargs):
         """Send remote control command and wait for this instances reply."""
+        timeout = kwargs.setdefault("timeout", 3)
         name = self.name
-        conn = None
+        producer = None
+        pool = None
         if "connection" not in kwargs:
-            conn = kwargs["connection"] = self.broker.pool.acquire(block=True)
+            print("+ACQUIRE PRODUCER")
+            producer = self.broker.producers.acquire(block=True, timeout=3)
+            print("-ACQUIRE PRODUCER")
+            kwargs.update(connection=producer.connection,
+                          channel=producer.channel)
         try:
-            return self.my_reply(celery.control.broadcast(cmd, arguments=args,
-                                 destination=[name], reply=True, **kwargs))
+            print("+BROADCAST")
+            try:
+                with Timeout(timeout):
+                    r = celery.control.broadcast(cmd, arguments=args, reply=True,
+                                                destination=[name], **kwargs)
+            except Timeout:
+                return None
+            print("-BROADCAST")
+            return self.my_reply(r)
         finally:
-            conn is not None and conn.release()
+            if producer is not None:
+                print("RELEASE PRODUCER")
+                producer.release()
 
     def my_reply(self, replies):
         name = self.name

@@ -16,12 +16,12 @@ from anyjson import serialize
 from celery import current_app as celery
 from celery.result import AsyncResult
 from cl.exceptions import NoReplyError, NoRouteError
-from cl.common import uuid
 from cl.pools import producers
 from kombu.utils.encoding import safe_repr
 
 from .controller import apps, nodes, queues
 from .tasks import webhook
+from .utils import uuid
 
 GET_METHODS = frozenset(["GET", "HEAD"])
 RE_URL_IN_PATH = re.compile(r'(.+?/)(\w+://)(.+)')
@@ -100,6 +100,9 @@ class App(JsonView):
                 password=get_or_post(request, "password"),
                 virtual_host=get_or_post(request, "virtual_host")))
     post = put
+
+    def delete(self, request, app):
+        return apps.delete(app)
 
 
 class Instance(JsonView):

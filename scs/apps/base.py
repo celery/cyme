@@ -44,13 +44,16 @@ class BaseApp(object):
             getpass.getpass = gp
 
     def run_from_argv(self, argv=None):
-        if DEBUG:
-            from celery.apps.worker import install_cry_handler
-            install_cry_handler(logging.getLogger())
         argv = sys.argv if argv is None else argv
         try:
             self.configure()
             self.syncdb()
+            if DEBUG:
+                from celery.apps.worker import install_cry_handler
+                install_cry_handler(logging.getLogger())
+            from cl import pools
+            from celery import current_app
+            pools.set_limit(current_app.conf.BROKER_POOL_LIMIT)
             return self.run(argv)
         except KeyboardInterrupt:
             if DEBUG:

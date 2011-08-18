@@ -4,6 +4,9 @@ DEBUG = True
 BROKER_HOST = "127.0.0.1"
 BROKER_POOL_LIMIT = 100
 
+import djcelery
+djcelery.setup_loader()
+
 # Databases
 DATABASES = {'default': {
                 'ENGINE': 'django.db.backends.sqlite3',

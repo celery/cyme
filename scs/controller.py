@@ -9,13 +9,13 @@ from cl.presence import AwareAgent, AwareActorMixin
 from cl.utils import flatten, first_or_raise
 from celery import current_app as celery
 from kombu import Exchange
-from kombu.utils import cached_property
 
 from . import conf
 from . import metrics
 from .models import App, Node, Queue
 from .state import state
 from .thread import gThread
+from .utils import cached_property
 
 ControllerBase = AwareAgent
 
@@ -47,6 +47,9 @@ class AppActor(SCSActor):
         def add(self, name, **broker):
             return App.objects.add(name, **broker).as_dict()
 
+        def delete(self, name):
+            return App.objects.filter(name=name).delete() and "ok"
+
         def get(self, name):
             try:
                 return App.objects.get(name=name).as_dict()
@@ -63,6 +66,10 @@ class AppActor(SCSActor):
     def add(self, name, **broker):
         self.scatter("add", dict({"name": name}, **broker), nowait=True)
         return self.state.add(name, **broker)
+
+    def delete(self, name, **kw):
+        self._cache.pop(name, None)
+        return list(self.scatter("delete", dict({"name": name}, **kw)))
 
     def metrics(self, name=None):
         return list(self.scatter("metrics"))
@@ -135,7 +142,7 @@ class NodeActor(SCSActor):
                         Node.objects.remove_queue_from_nodes(queue)]
 
         def autoscale(self, name, max=None, min=None):
-            node = self.agent.get(name=name)
+            node = self.agent.get(name)
             node.autoscale(max=max, min=min)
             return {"max": node.max_concurrency, "min": node.min_concurrency}
 

@@ -4,9 +4,9 @@ from __future__ import absolute_import
 
 from anyjson import serialize
 from celery import current_app as celery
-from celery.utils import gen_unique_id
 from djcelery.managers import ExtendedManager
-from kombu.utils import cached_property
+
+from .utils import cached_property, uuid
 
 
 class BrokerManager(ExtendedManager):
@@ -69,7 +69,7 @@ class NodeManager(ExtendedManager):
 
     def add(self, nodename=None, queues=None, max_concurrency=1,
             min_concurrency=1, broker=None, app=None):
-        node = self.create(name=nodename or gen_unique_id(),
+        node = self.create(name=nodename or uuid(),
                            max_concurrency=max_concurrency,
                            min_concurrency=min_concurrency,
                            app=app)

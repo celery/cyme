@@ -21,7 +21,7 @@ class Agent(gThread):
     controller = None
 
     def __init__(self, addrport="", id=None, loglevel=logging.INFO,
-            logfile=None, without_httpd=False, **kwargs):
+            logfile=None, without_httpd=False, numc=10, **kwargs):
         self.id = id or gen_unique_id()
         if isinstance(addrport, basestring):
             addr, _, port = addrport.partition(":")
@@ -33,10 +33,14 @@ class Agent(gThread):
         self.loglevel = loglevel
         if not self.without_httpd:
             self.httpd = instantiate(self.httpd_cls, addrport)
-        self.controller = instantiate(self.controller_cls,
-                                      id=self.id, connection=self.connection)
+        controllers = [instantiate(self.controller_cls,
+                                   id="%s.%s" % (self.id, i),
+                                   connection=self.connection)
+                            for i in xrange(numc)]
+        #self.controller = instantiate(self.controller_cls,
+        #                              id=self.id, connection=self.connection)
 
-        components = [self.httpd, supervisor, self.controller]
+        components = [self.httpd, supervisor] + controllers
         self.components = list(filter(None, components))
         super(Agent, self).__init__()
 

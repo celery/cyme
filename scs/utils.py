@@ -4,6 +4,9 @@ from __future__ import absolute_import
 
 from importlib import import_module
 
+from kombu.utils import gen_unique_id as uuid  # noqa
+from kombu.utils import cached_property        # noqa
+
 
 def shellquote(v):
     return "\\'".join("'" + p + "'" for p in v.split("'"))

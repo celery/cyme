@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 from time import time
 
-from kombu.utils import cached_property
+from .utils import cached_property
 
 
 class State(object):
