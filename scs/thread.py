@@ -2,9 +2,7 @@
 
 from __future__ import absolute_import
 
-import sys
-
-from cl.g import blocking, spawn, timer
+from cl.g import spawn, timer
 from cl.log import LogMixin
 
 

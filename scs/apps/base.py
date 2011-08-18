@@ -2,19 +2,20 @@
 
 from __future__ import absolute_import, with_statement
 
-from .. import DEBUG, DEBUG_BLOCK
+from .. import DEBUG, DEBUG_BLOCK, DEBUG_READERS
 
 import eventlet
 import eventlet.debug
 eventlet.monkey_patch()
-#eventlet.debug.hub_prevent_multiple_readers(False)
+if DEBUG_READERS:
+    eventlet.debug.hub_prevent_multiple_readers(False)
+    print("+++ MULTIPLE READERS ALLOWED +++")
 if DEBUG_BLOCK:
     eventlet.debug.hub_blocking_detection(True)
     print("+++ BLOCING DETECTION ENABLED +++")
 
 import getpass
 import logging
-import os
 import sys
 
 from .. import settings as default_settings

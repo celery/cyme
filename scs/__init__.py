@@ -14,5 +14,6 @@ __license__ = "BSD (3 clause)"
 
 DEBUG = os.environ.get("SCS_DEBUG")
 DEBUG_BLOCK = os.environ.get("SCS_DEBUG_BLOCK")
+DEBUG_READERS = os.environ.get("SCS_DEBUG_READERS")
 if not os.environ.get("SCS_NO_EVAL"):
-    from .client import Client
+    from .client import Client  # noqa

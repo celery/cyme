@@ -19,9 +19,7 @@ from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
 from . import conf
-from . import signals
 from .managers import AppManager, BrokerManager, NodeManager, QueueManager
-from .utils import shellquote
 
 logger = logging.getLogger("Node")
 
@@ -187,21 +185,15 @@ class Node(models.Model):
 
     def start(self, **kwargs):
         """Starts the instance."""
-        r = self._action("start", **kwargs)
-        signals.node_started.send(sender=self, instance=self)
-        return r
+        return self._action("start", **kwargs)
 
     def stop(self, **kwargs):
         """Shuts down the instance."""
-        r = self._action("stop", **kwargs)
-        signals.node_stopped.send(sender=self, instance=self)
-        return r
+        return self._action("stop", **kwargs)
 
     def restart(self, **kwargs):
         """Restarts the instance."""
-        r = self._action("restart", **kwargs)
-        signals.node_started.send(sender=self, instance=self)
-        return r
+        return self._action("restart", **kwargs)
 
     def alive(self, **kwargs):
         """Returns :const:`True` if the pid responds to signals,
@@ -327,7 +319,7 @@ class Node(models.Model):
         return ("--workdir=%s" % (self.cwd, ),
                 "--pidfile=%s" % (self.pidfile, ),
                 "--logfile=%s" % (self.logfile, ),
-                "--queues=%s"  % (self.direct_queue, ),
+                "--queues=%s" % (self.direct_queue, ),
                 "--loglevel=DEBUG",
                 "--include=scs.tasks",
                 "--autoscale=%s,%s" % (self.max_concurrency,

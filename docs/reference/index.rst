@@ -8,6 +8,7 @@
 .. toctree::
     :maxdepth: 1
 
+    scs.client
     scs.agent
     scs.controller
     scs.views
@@ -20,7 +21,6 @@
     scs.managers
     scs.metrics
     scs.models
-    scs.signals
     scs.state
     scs.supervisor
     scs.thread

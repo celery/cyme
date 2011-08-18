@@ -2,9 +2,7 @@
 
 from __future__ import absolute_import
 
-import eventlet
-import os
-
+from eventlet import listen
 from eventlet import wsgi
 
 from django.core.handlers import wsgi as djwsgi
@@ -20,5 +18,5 @@ class HttpServer(gThread):
         super(HttpServer, self).__init__()
 
     def run(self):
-        wsgi.server(eventlet.listen(self.addrport or ("", 8000)),
+        wsgi.server(listen(self.addrport or ("", 8000)),
                     AdminMediaHandler(djwsgi.WSGIHandler()))

@@ -64,7 +64,7 @@ class NodeManager(ExtendedManager):
     def _maybe_queues(self, queues):
         if isinstance(queues, basestring):
             queues = queues.split(",")
-        return [(queue.name if isinstance(queue, Queue) else queue)
+        return [(queue.name if isinstance(queue, self.model.Queue) else queue)
                     for queue in queues]
 
     def add(self, nodename=None, queues=None, max_concurrency=1,

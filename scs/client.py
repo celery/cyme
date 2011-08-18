@@ -1,16 +1,12 @@
 import anyjson
 import requests
 
-from functools import partial
 from urllib import quote
 
 from celery.datastructures import AttributeDict
 from kombu.utils import cached_property
 
 from . import __version__
-
-
-
 
 
 class Path(object):
@@ -23,6 +19,7 @@ class Path(object):
 
     def __div__(self, other):
         return Path(other, self.stack)
+
 
 class Base(object):
 
@@ -63,8 +60,6 @@ class Section(Base):
         return self.client.DELETE(*args, **kwargs)
 
 
-
-
 class Instances(Section):
 
     def all(self):
@@ -78,6 +73,9 @@ class Instances(Section):
 
     def delete(self, name):
         return self.DELETE(self.path / name)
+
+    def __repr__(self):
+        return repr(self.all())
 
 
 class Queues(Section):
@@ -107,16 +105,18 @@ class Queues(Section):
         return self.POST(self.path / name / "autoscale",
                          params={"max": max, "min": min})
 
+    def __repr__(self):
+        return repr(self.all())
+
 
 class Consumers(Section):
     path = Path("instances")
 
     def add(self, instance, queue):
-        return self.PUT(self.path / instance, "queues" / queue)
+        return self.PUT(self.path / instance / "queues" / queue)
 
     def remove(self, instance, queue):
         return self.PUT(self.path / instance / "queues" / queue)
-
 
 
 class Client(Base):
@@ -203,4 +203,3 @@ class Client(Base):
     def headers(self):
         return {"Accept": "application/json",
                 "User-Agent": "scs-client %r" % (__version__, )}
-

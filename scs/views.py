@@ -9,13 +9,13 @@ import sys
 from functools import partial
 from traceback import format_exception
 
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseNotFound
 from django.views.generic.base import View
 
 from anyjson import serialize
 from celery import current_app as celery
 from celery.result import AsyncResult
-from cl.exceptions import NoReplyError
+from cl.exceptions import NoReplyError, NoRouteError
 from cl.common import uuid
 from cl.pools import producers
 from kombu.utils.encoding import safe_repr
@@ -46,6 +46,7 @@ Accepted = partial(JsonResponse, status=http.ACCEPTED)
 Created = partial(JsonResponse, status=http.CREATED)
 Error = partial(JsonResponse, status=http.INTERNAL_SERVER_ERROR)
 
+
 def short(fun):
     return type(fun.__name__, (JsonView, ), {
         "__module__": fun.__module__, "__doc__": fun.__doc__, "get": fun})
@@ -75,6 +76,8 @@ class JsonView(View):
     def dispatch(self, *args, **kwargs):
         try:
             data = super(JsonView, self).dispatch(*args, **kwargs)
+        except NoRouteError:
+            return HttpResponseNotFound()
         except NoReplyError:
             return HttpResponseTimeout()
         except Exception, exc:
@@ -144,7 +147,6 @@ class Consumer(JsonView):
 @short
 def State(self, request, app, uuid):
     return {"state": AsyncResult(uuid).state}
-
 
 
 @short

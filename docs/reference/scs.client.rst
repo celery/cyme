@@ -1,11 +1,11 @@
 ========================
- scs.signals
+ scs.client
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: scs.signals
+.. currentmodule:: scs.client
 
-.. automodule:: scs.signals
+.. automodule:: scs.client
     :members:
     :undoc-members:

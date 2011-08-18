@@ -2,7 +2,6 @@
 
 from __future__ import absolute_import, with_statement
 
-import logging
 import sys
 
 from collections import defaultdict
@@ -10,7 +9,8 @@ from threading import Lock
 
 from celery.datastructures import TokenBucket
 from celery.utils.timeutils import rate
-from cl.g import Event, Queue
+from eventlet.queue import LightQueue
+from eventlet.event import Event
 from kombu.syn import blocking
 from kombu.utils import fxrangemax
 
@@ -47,6 +47,7 @@ def insured(node, fun, *args, **kwargs):
 
 
 def ib(fun, *args, **kwargs):
+    """Shortcut to ``blocking(insured(fun.im_self, fun(*args, **kwargs)))``"""
     return blocking(insured, fun.im_self, fun, *args, **kwargs)
 
 
@@ -80,14 +81,14 @@ class Supervisor(gThread):
     #: Limit node restarts to 1/m, out of control nodes will be restarted.
     restart_max_rate = "1/m"
 
-    #: default interval_max for ensure_connection is 30 secs.
+    #: Default interval_max for ensure_connection is 30 secs.
     wait_after_broker_revived = 35.0
 
     #: Connection errors pauses the supervisor, so events does not accumulate.
     paused = False
 
     def __init__(self, queue=None):
-        self.queue = Queue() if queue is None else queue
+        self.queue = LightQueue() if queue is None else queue
         self._buckets = defaultdict(lambda: TokenBucket(
                                     rate(self.restart_max_rate)))
         self._pause_mutex = Lock()
@@ -106,7 +107,7 @@ class Supervisor(gThread):
             self.info("resuming")
             self.paused = False
 
-    def verify(self, nodes):
+    def verify(self, nodes, ratelimit=False):
         """Verify the consistency of one or more nodes.
 
         :param nodes: List of nodes to verify.
@@ -115,7 +116,8 @@ class Supervisor(gThread):
         instance that can be used to wait for the operation to complete.
 
         """
-        return self._request(nodes, self._do_verify_node)
+        return self._request(nodes, self._do_verify_node,
+                            {"ratelimit": ratelimit})
 
     def restart(self, nodes):
         """Restart one or more nodes.
@@ -152,24 +154,25 @@ class Supervisor(gThread):
         queue = self.queue
         self.info("started...")
         while 1:
-            nodes, event, action = queue.get()
+            nodes, event, action, kwargs = queue.get()
             self.info("wake-up")
             try:
                 for node in nodes:
                     try:
-                        action(node)
+                        action(node, **kwargs)
                     except Exception, exc:
-                        self.error("Event caused exception: %r" % (exc, ))
+                        self.error("Event caused exception: %r" % (exc, ),
+                                   exc_info=sys.exc_info())
             finally:
                 event.send(True)
 
     def _verify_all(self):
         if not self._last_update or self._last_update.ready():
-            self._last_update = self.verify(Node.objects.all())
+            self._last_update = self.verify(Node.objects.all(), ratelimit=True)
 
-    def _request(self, nodes, action):
+    def _request(self, nodes, action, kwargs={}):
         event = Event()
-        self.queue.put_nowait((nodes, event, action))
+        self.queue.put_nowait((nodes, event, action, kwargs))
         return event
 
     def _verify_restart_node(self, node):
@@ -197,13 +200,15 @@ class Supervisor(gThread):
                 > self.wait_after_broker_revived
 
     def _do_restart_node(self, node, ratelimit=False):
+        bucket = self._buckets[node.restart]
         if ratelimit:
             if self._can_restart():
-                if self._buckets[node.restart].can_consume(1):
+                if bucket.can_consume(1):
                     self._verify_restart_node(node)
                 else:
                     self.error(
-                        "%s node.disabled: Restarted too often" % (node, ))
+                        "%s node.disabled: Restarted too many times" % (
+                            node, ))
                     node.disable()
                     self._buckets.pop(node.restart)
         else:
@@ -214,11 +219,11 @@ class Supervisor(gThread):
         self.warn("%s node.shutdown" % (node, ))
         blocking(node.stop)
 
-    def _do_verify_node(self, node):
+    def _do_verify_node(self, node, ratelimit=False):
         if not self.paused:
             if node.is_enabled and node.pk:
                 if not ib(node.alive):
-                    self._do_restart_node(node, ratelimit=True)
+                    self._do_restart_node(node, ratelimit=ratelimit)
                 self._verify_node_processes(node)
                 self._verify_node_queues(node)
             else:
