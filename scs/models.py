@@ -243,9 +243,7 @@ class Node(models.Model):
     def consuming_from(self, **kwargs):
         """Return the queues the instance is currently consuming from."""
         queues = self._query("active_queues", **kwargs)
-        if queues:
-            return dict((q["name"], q) for q in queues)
-        return {}
+        return dict((q["name"], q) for q in queues) if queues else {}
 
     def add_queue(self, q, **kwargs):
         """Add queue for this instance by name."""
@@ -267,8 +265,7 @@ class Node(models.Model):
 
     def cancel_queue(self, queue, **kwargs):
         """Cancel queue for this instance by :class:`Queue`."""
-        if isinstance(queue, self.Queue):
-            queue = queue.name
+        queue = queue.name if isinstance(queue, self.Queue) else queue
         return self._query("cancel_consumer", dict(queue=queue), **kwargs)
 
     def getpid(self):
@@ -277,14 +274,13 @@ class Node(models.Model):
         Returns :const:`None` if the pidfile does not exist.
 
         """
-        pidfile = self.pidfile.replace("%n", self.name)
-        return platforms.PIDFile(pidfile).read_pid()
+        return platforms.PIDFile(
+                self.pidfile.replace("%n", self.name)).read_pid()
 
     def _action(self, action, multi="celeryd-multi"):
         """Execute :program:`celeryd-multi` command."""
         with self.mutex:
             argv = ([multi, action, '--suffix=""', "--no-color", self.name]
-                  + list(self.argv)
                   + list(self.default_args)
                   + self.extra_config)
             logger.info(" ".join(argv))
@@ -297,27 +293,16 @@ class Node(models.Model):
         if "connection" not in kwargs:
             conn = kwargs["connection"] = self.broker.pool.acquire(block=True)
         try:
-            r = celery.control.broadcast(cmd, arguments=args,
-                       destination=[name], reply=True, **kwargs)
+            return self.my_reply(celery.control.broadcast(cmd, arguments=args,
+                                 destination=[name], reply=True, **kwargs))
         finally:
-            if conn:
-                conn.release()
-        if r:
-            for reply in r:
-                if name in reply:
-                    return reply[name]
+            conn is not None and conn.release()
 
-    @property
-    def argv(self):
-        acc = []
-        [acc.extend([k, shellquote(str(v))])
-                for k, v in self.argtuple
-                    if v]
-        return acc
-
-    @property
-    def argtuple(self):
-        return (("-Q", self.direct_queue, ), )
+    def my_reply(self, replies):
+        name = self.name
+        for reply in replies or []:
+            if name in reply:
+                return reply[name]
 
     @cached_property
     def multi(self):
@@ -342,6 +327,7 @@ class Node(models.Model):
         return ("--workdir=%s" % (self.cwd, ),
                 "--pidfile=%s" % (self.pidfile, ),
                 "--logfile=%s" % (self.logfile, ),
+                "--queues=%s"  % (self.direct_queue, ),
                 "--loglevel=DEBUG",
                 "--include=scs.tasks",
                 "--autoscale=%s,%s" % (self.max_concurrency,

@@ -10,19 +10,13 @@ from threading import Lock
 
 from celery.datastructures import TokenBucket
 from celery.utils.timeutils import rate
-from eventlet.queue import LightQueue
-from eventlet.event import Event
+from cl.g import Event, Queue
 from kombu.syn import blocking
 from kombu.utils import fxrangemax
-
-from django.db.models import signals
 
 from .models import Node
 from .state import state
 from .thread import gThread
-
-
-logger = logging.getLogger("Supervisor")
 
 
 def insured(node, fun, *args, **kwargs):
@@ -30,8 +24,8 @@ def insured(node, fun, *args, **kwargs):
     despite intermittent connection failures."""
 
     def errback(exc, interval):
-        sys.stderr.write("Error while trying to broadcast %r: %r\n" % (
-            fun, exc))
+        sys.stderr.write(
+            "Error while trying to broadcast %r: %r\n" % (fun, exc))
         supervisor.pause()
 
     with node.broker.pool.acquire(block=True) as conn:
@@ -53,7 +47,6 @@ def insured(node, fun, *args, **kwargs):
 
 
 def ib(fun, *args, **kwargs):
-    """Shortcut to ``blocking(insured(fun.im_self, fun(*args, **kwargs)))``"""
     return blocking(insured, fun.im_self, fun, *args, **kwargs)
 
 
@@ -84,19 +77,17 @@ class Supervisor(gThread):
     by the :attr:`wait_after_broker_revived` attribute).
 
     """
-    # Limit node restarts to 1/m, out of control nodes will be restarted.
+    #: Limit node restarts to 1/m, out of control nodes will be restarted.
     restart_max_rate = "1/m"
 
-    # default interval_max for ensure_connection is 30 secs.
+    #: default interval_max for ensure_connection is 30 secs.
     wait_after_broker_revived = 35.0
 
-    # Connection errors pauses the supervisor, so events does not accumulate.
+    #: Connection errors pauses the supervisor, so events does not accumulate.
     paused = False
 
     def __init__(self, queue=None):
-        if queue is None:
-            queue = LightQueue()
-        self.queue = queue
+        self.queue = Queue() if queue is None else queue
         self._buckets = defaultdict(lambda: TokenBucket(
                                     rate(self.restart_max_rate)))
         self._pause_mutex = Lock()
@@ -155,7 +146,6 @@ class Supervisor(gThread):
         return self._request(nodes, self._do_stop_node)
 
     def before(self):
-        self.connect_signals()
         self.start_periodic_timer(5, self._verify_all)
 
     def run(self):
@@ -169,8 +159,7 @@ class Supervisor(gThread):
                     try:
                         action(node)
                     except Exception, exc:
-                        self.error("Event caused exception: %r" % (exc, ),
-                                   exc_info=sys.exc_info())
+                        self.error("Event caused exception: %r" % (exc, ))
             finally:
                 event.send(True)
 
@@ -208,15 +197,13 @@ class Supervisor(gThread):
                 > self.wait_after_broker_revived
 
     def _do_restart_node(self, node, ratelimit=False):
-        bucket = self._buckets[node.restart]
         if ratelimit:
             if self._can_restart():
-                if bucket.can_consume(1):
+                if self._buckets[node.restart].can_consume(1):
                     self._verify_restart_node(node)
                 else:
                     self.error(
-                        "%s node.disabled: Restarted too many times" % (
-                            node, ))
+                        "%s node.disabled: Restarted too often" % (node, ))
                     node.disable()
                     self._buckets.pop(node.restart)
         else:
@@ -269,16 +256,4 @@ class Supervisor(gThread):
             self.warn("%s: node.set_autoscale max=%r min=%r" % (
                 node, max, min))
             ib(node.autoscale, max, min)
-
-    def connect_signals(self):
-
-        def verify_on_changed(instance=None, **kwargs):
-            self.verify([instance]).wait()
-
-        def stop_on_delete(instance=None, **kwargs):
-            self.stop([instance]).wait()
-
-        signals.post_save.connect(verify_on_changed)
-        signals.post_delete.connect(stop_on_delete)
-        signals.m2m_changed.connect(verify_on_changed)
 supervisor = Supervisor()

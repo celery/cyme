@@ -9,7 +9,6 @@ from kombu.utils import cached_property
 
 class State(object):
     broker_last_revived = None
-    controller = None
 
     #: set to true if the process is an scs-agent
     is_agent = False

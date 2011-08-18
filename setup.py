@@ -12,7 +12,10 @@ except ImportError:
     from setuptools import setup, Command  # noqa
 from distutils.command.install import INSTALL_SCHEMES
 
+os.environ["SCS_NO_EVAL"] = "yes"
 import scs as distmeta
+os.environ.pop("SCS_NO_EVAL", None)
+sys.modules.pop("scs", None)
 
 packages, data_files = [], []
 root_dir = os.path.dirname(__file__)
@@ -122,6 +125,7 @@ setup(
         "dnspython",
         "Django",
         "django-celery>=2.3.1",
+        "requests",
     ],
     cmdclass={"test": RunTests,
               "citest": CIRunTests},

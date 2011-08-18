@@ -5,7 +5,9 @@ from __future__ import absolute_import
 import httplib as http
 import re
 import sys
-import traceback
+
+from functools import partial
+from traceback import format_exception
 
 from django.http import HttpResponse
 from django.views.generic.base import View
@@ -40,17 +42,13 @@ def JsonResponse(data, status=http.OK, **kwargs):
     response.csrf_exempt = True
     return response
 
+Accepted = partial(JsonResponse, status=http.ACCEPTED)
+Created = partial(JsonResponse, status=http.CREATED)
+Error = partial(JsonResponse, status=http.INTERNAL_SERVER_ERROR)
 
-def Accepted(data, **kwargs):
-    return JsonResponse(data, status=http.ACCEPTED, **kwargs)
-
-
-def Created(data, **kwargs):
-    return JsonResponse(data, status=http.CREATED, **kwargs)
-
-
-def Error(data, **kwargs):
-    return JsonResponse(data, status=http.INTERNAL_SERVER_ERROR, **kwargs)
+def short(fun):
+    return type(fun.__name__, (JsonView, ), {
+        "__module__": fun.__module__, "__doc__": fun.__doc__, "get": fun})
 
 
 def _parse_path_containing_url(rest):
@@ -59,19 +57,17 @@ def _parse_path_containing_url(rest):
         first, scheme, last = m.groups()
         if scheme:
             return first, scheme + last
-        else:
-            return first, None
+        return first, None
     return rest, None
 
 
 def get_or_post(request, key, default=None):
-    try:
-        return request.GET[key]
-    except KeyError:
+    for d in (request.GET, request.POST):
         try:
-            return request.POST[key]
+            return d[key]
         except KeyError:
-            return default
+            pass
+    return default
 
 
 class JsonView(View):
@@ -82,45 +78,31 @@ class JsonView(View):
         except NoReplyError:
             return HttpResponseTimeout()
         except Exception, exc:
-            return Error({"nok": [
-                        safe_repr(exc),
-                        "".join(traceback.format_exception(*sys.exc_info()))]})
-        return self.Response(data)
-
-    def Response(self, data):
-        if not isinstance(data, HttpResponse):
-            return JsonResponse(data)
-        return data
+            return Error({"nok": [safe_repr(exc),
+                                  "".join(format_exception(*sys.exc_info()))]})
+        return JsonResponse(data)
 
 
 class App(JsonView):
 
     def get(self, request, app=None):
-        if app is None:
-            return apps.all()
-        x = apps.get(app)
-        return x.as_dict()
+        return apps.get(app).as_dict() if app else apps.all()
 
     def put(self, request, app=None):
-        app = app or uuid()
         port = get_or_post(request, "port")
-        app = apps.add(app,
-                       hostname=get_or_post(request, "hostname"),
-                       port=int(port) if port else None,
-                       userid=get_or_post(request, "userid"),
-                       password=get_or_post(request, "password"),
-                       virtual_host=get_or_post(request,
-                                                "virtual_host"))
-        return Created(app)
+        return Created(apps.add(app or uuid(),
+                hostname=get_or_post(request, "hostname"),
+                port=int(port) if port else None,
+                userid=get_or_post(request, "userid"),
+                password=get_or_post(request, "password"),
+                virtual_host=get_or_post(request, "virtual_host")))
     post = put
 
 
 class Instance(JsonView):
 
     def get(self, request, app, name=None):
-        if name:
-            return nodes.get(name)
-        return nodes.all(app=app)
+        return nodes.get(name) if name else nodes.all(app=app)
 
     def delete(self, request, app, name):
         return nodes.remove(name)
@@ -130,18 +112,16 @@ class Instance(JsonView):
     post = put
 
 
-class InstanceStats(JsonView):
-
-    def get(self, request, app, name):
-        return nodes.stats(name)
+@short
+def InstanceStats(self, request, app, name):
+    return nodes.stats(name)
 
 
 class Autoscale(JsonView):
 
     def get(self, request, app, name):
         node = nodes.get(name)
-        return {"max": node["max_concurrency"],
-                "min": node["min_concurrency"]}
+        return {"max": node["max_concurrency"], "min": node["min_concurrency"]}
 
     def post(self, request, app, name):
         return nodes.autoscale(name, max=get_or_post(request, "max"),
@@ -161,41 +141,36 @@ class Consumer(JsonView):
         return nodes.cancel_consumer(name, queue)
 
 
-class State(JsonView):
-
-    def get(self, request, app, uuid):
-        return {"state": AsyncResult(uuid).state}
-
-
-class Result(JsonView):
-
-    def get(self, request, app, uuid):
-        return {"result": AsyncResult(uuid).result}
+@short
+def State(self, request, app, uuid):
+    return {"state": AsyncResult(uuid).state}
 
 
-class Wait(JsonView):
 
-    def get(self, request, app, uuid):
-        return {"result": AsyncResult(uuid).get()}
+@short
+def Result(self, request, app, uuid):
+    return {"result": AsyncResult(uuid).result}
+
+
+@short
+def Wait(self, request, app, uuid):
+    return {"result": AsyncResult(uuid).get()}
 
 
 class Queue(JsonView):
 
     def get(self, request, app, name=None):
-        if name:
-            return queues.get(name)
-        return queues.all()
+        return queues.get(name) if name else queues.all()
 
     def delete(self, request, app, name):
         return queues.delete(name)
 
     def put(self, request, app, name):
-        queue = queues.add(name,
+        return Created(queues.add(name,
                     exchange=get_or_post(request, "exchange"),
                     exchange_type=get_or_post(request, "exchange_type"),
                     routing_key=get_or_post(request, "routing_key"),
-                    options=get_or_post(request, "options"))
-        return Created(queue)
+                    options=get_or_post(request, "options")))
     post = put
 
 

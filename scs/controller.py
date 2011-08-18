@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from cl import Actor
 from cl.models import ModelActor
 from cl.presence import AwareAgent
-from cl.utils import flatten
+from cl.utils import flatten, first_or_raise
 from celery import current_app as celery
 from kombu import Exchange
 from kombu.utils import cached_property
@@ -53,8 +53,7 @@ class AppActor(SCSActor):
             return [app.name for app in App.objects.all()]
 
         def add(self, name, **broker):
-            app = App.objects.add(name, **broker)
-            return app.as_dict()
+            return App.objects.add(name, **broker).as_dict()
 
         def get(self, name):
             try:
@@ -92,16 +91,13 @@ class AppActor(SCSActor):
         try:
             return self.state.get(name)
         except self.Next:
-            try:
-                return self.scatter("get", {"name": name}).next()
-            except StopIteration:
-                raise KeyError(name)
+            return first_or_raise(self.scatter("get", {"name": name}))
 apps = AppActor()
 
 
 class NodeActor(SCSModelActor):
     model = Node
-    exchange = Exchange("scs.nodes")
+    exchange = Exchange("scs.Node")
     sigmap = {"on_create": signals.node_started.connect,
               "on_delete": signals.node_stopped.connect}
     default_timeout = 10
@@ -113,41 +109,38 @@ class NodeActor(SCSModelActor):
                         Node.objects.filter(app=apps.get(app))]
 
         def get(self, name, app=None):
-            return self.agent.get(name).as_dict()
+            print("+int GET %r" % (name, ))
+            x = Node.objects.get(name=name)
+            print("-int GET")
+            return x.as_dict()
 
         def add(self, name=None, app=None, **kwargs):
             return self.agent.add(name, app=apps.get(app), **kwargs).as_dict()
 
         def remove(self, name, app=None):
-            self.agent.remove(name)
-            return True
+            return self.agent.remove(name) and "ok"
 
         def restart(self, name, app=None):
-            self.agent.restart(name)
-            return True
+            return self.agent.restart(name) and "ok"
 
         def enable(self, name, app=None):
-            self.agent.enable(name)
-            return True
+            return self.agent.enable(name) and "ok"
 
         def disable(self, name, app=None):
-            self.agent.disable(name)
-            return "ok"
+            return self.agent.disable(name) and "ok"
 
         def add_consumer(self, name, queue):
-            self.agent.add_consumer(name, queue)
-            return "ok"
+            return self.agent.add_consumer(name, queue) and "ok"
 
         def cancel_consumer(self, name, queue):
-            self.agent.cancel_consumer(name, queue)
-            return "ok"
+            return self.agent.cancel_consumer(name, queue) and "ok"
 
         def remove_queue_from_all(self, queue):
             return [node.name for node in
                         Node.objects.remove_queue_from_nodes(queue)]
 
         def autoscale(self, name, max=None, min=None):
-            node = Node.objects.get(name=name)
+            node = self.agent.get(name=name)
             node.autoscale(max=max, min=min)
             return {"max": node.max_concurrency, "min": node.min_concurrency}
 
@@ -163,7 +156,10 @@ class NodeActor(SCSModelActor):
             return cluster
 
     def get(self, name, app=None, **kw):
-        return self.send("get", {"name": name, "app": app}, to=name, **kw)
+        print("+ext GET %r" % (name, ))
+        x = self.send("get", {"name": name, "app": app}, to=name, **kw)
+        print("-exc GET")
+        return x
 
     def all(self, app=None):
         return flatten(self.scatter("all", {"app": app}))
@@ -198,8 +194,7 @@ class NodeActor(SCSModelActor):
 
     def autoscale(self, name, max=None, min=None, **kw):
         return self.send("autoscale",
-                         {"name": name, "min": min, "max": max},
-                         to=name, **kw)
+                         {"name": name, "min": min, "max": max}, to=name, **kw)
 
     def consuming_from(self, name, **kw):
         return self.send("consuming_from", {"name": name}, to=name, **kw)
@@ -211,7 +206,7 @@ nodes = NodeActor()
 
 class QueueActor(SCSModelActor):
     model = Queue
-    exchange = Exchange("scs.queues")
+    exchange = Exchange("scs.Queue")
     sigmap = {"on_create": lambda f: post_save.connect(f, sender=Queue),
               "on_delete": lambda f: post_delete.connect(f, sender=Queue)}
 
@@ -237,12 +232,12 @@ class QueueActor(SCSModelActor):
         return flatten(self.scatter("all"))
 
     def get(self, name):
-        try:
-            # see if we have the queue locally.
-            return self.state.get(name)
-        except KeyError:
-            # if not, ask the agents.
-            return self.send("get", {"name": name}, to=name)
+        #try:
+        #    # see if we have the queue locally.
+        #    return self.state.get(name)
+        #except KeyError:
+        #    # if not, ask the agents.
+        return self.send("get", {"name": name}, to=name)
 
     def add(self, name, **decl):
         return self.throw("add", dict({"name": name}, **decl))
@@ -252,13 +247,14 @@ class QueueActor(SCSModelActor):
         return self.send("delete", {"name": name}, to=name, **kw)
 queues = QueueActor()
 
+ControllerBase = AwareAgent
 
-class Controller(AwareAgent, gThread):
+class Controller(ControllerBase, gThread):
     actors = [AppActor(), NodeActor(), QueueActor()]
     connect_max_retries = celery.conf.BROKER_CONNECTION_MAX_RETRIES
 
     def __init__(self, *args, **kwargs):
-        AwareAgent.__init__(self, *args, **kwargs)
+        ControllerBase.__init__(self, *args, **kwargs)
         gThread.__init__(self)
 
     def on_awake(self):

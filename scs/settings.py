@@ -1,28 +1,14 @@
-"""scs.settings"""
-
-from __future__ import absolute_import
-
 DEBUG = True
 
 # Broker settings.
 BROKER_HOST = "127.0.0.1"
-BROKER_PORT = 5672
-BROKER_USER = "guest"
-BROKER_PASSWORD = "guest"
-BROKER_VHOST = "/"
-BROKER_POOL_LIMIT = 10
+BROKER_POOL_LIMIT = 100
 
 # Databases
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'scs.sqlite',
-        'USER': '',
-        'PASSWORD': '',
-        'HOST': '',
-        'PORT': '',
-    }
-}
+DATABASES = {'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': 'scs.sqlite',
+            }}
 
 # URL and file paths.
 SITE_ID = 1
@@ -39,8 +25,7 @@ ROOT_URLCONF = "scs.urls"
 # Time and localization.
 TIME_ZONE = "UTC"
 LANGUAGE_CODE = "en-us"
-USE_I18N = True
-USE_L10N = True
+USE_I18N = USE_L10N = True
 
 # Apps and middleware.
 INSTALLED_APPS = ("django.contrib.auth",
@@ -54,7 +39,6 @@ INSTALLED_APPS = ("django.contrib.auth",
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    #'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
 )

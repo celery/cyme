@@ -17,7 +17,6 @@ from .thread import gThread
 class Agent(gThread):
     controller_cls = "scs.controller.Controller"
     httpd_cls = "scs.httpd.HttpServer"
-
     httpd = None
     controller = None
 
@@ -26,8 +25,7 @@ class Agent(gThread):
         self.id = id or gen_unique_id()
         if isinstance(addrport, basestring):
             addr, _, port = addrport.partition(":")
-            port = int(port) if port else 8000
-            addrport = (addr, port)
+            addrport = (addr, int(port) if port else 8000)
         self.addrport = addrport
         self.connection = celery.broker_connection()
         self.without_httpd = without_httpd
@@ -44,25 +42,18 @@ class Agent(gThread):
 
     def run(self):
         state.is_agent = True
-        celery.log.setup_logging_subsystem(loglevel=self.loglevel,
-                                           logfile=self.logfile)
+        celery.log.setup_logging_subsystem(self.loglevel, self.logfile)
         self.info("Starting with id %r" % (self.id, ))
-        threads = []
-        for component in self.components:
-            threads.append(component.start())
-            self.debug("Started %s thread" % (
-                component.__class__.__name__, ))
-        threads[-1].wait()
+        [g.start() for g in self.components][-1].wait()
+
+
+def maybe_wait(g, nowait):
+    not nowait and g.wait()
 
 
 class Cluster(object):
     Nodes = Node._default_manager
     Brokers = Broker._default_manager
-    supervisor = supervisor
-
-    def _maybe_wait(self, g, nowait):
-        if not nowait:
-            return g.wait()
 
     def get(self, nodename):
         return self.Nodes.get(name=nodename)
@@ -79,56 +70,44 @@ class Cluster(object):
                             virtual_host=virtual_host)
         node = self.Nodes.add(nodename, queues, max_concurrency,
                               min_concurrency, broker, app)
-        self._maybe_wait(self.supervisor.verify([node]), nowait)
-        return node
-
-    def modify(self, nodename, queues=None, max_concurrency=None,
-            min_concurrency=None, nowait=False):
-        node = self.Nodes.modify(nodename, queues, max_concurrency,
-                                                   min_concurrency)
-        self._maybe_wait(self.supervisor.verify([node]), nowait)
+        maybe_wait(supervisor.verify([node]), nowait)
         return node
 
     def remove(self, nodename, nowait=False):
         node = self.Nodes.remove(nodename)
-        self._maybe_wait(self.supervisor.stop([node]), nowait)
+        maybe_wait(supervisor.stop([node]), nowait)
         return node
 
     def restart(self, nodename, nowait=False):
         node = self.get(nodename)
-        self._maybe_wait(self.supervisor.restart([node]), nowait)
+        maybe_wait(supervisor.restart([node]), nowait)
         return node
 
     def enable(self, nodename, nowait=False):
         node = self.Nodes.enable(nodename)
-        self._maybe_wait(self.supervisor.verify([node]), nowait)
+        maybe_wait(supervisor.verify([node]), nowait)
         return node
 
     def disable(self, nodename, nowait=False):
         node = self.Nodes.disable(nodename)
-        self._maybe_wait(self.supervisor.verify([node]), nowait)
+        maybe_wait(supervisor.verify([node]), nowait)
         return node
 
     def add_consumer(self, name, queue, nowait=False):
-        print("+GET NODE")
         node = self.get(name)
-        print("-GET NODE")
-        print("+ADD QUEUE")
         node.queues.add(queue)
         node.save()
-        print("-ADD QUEUE")
-        print("+WAIT FOR SUPERVISOR")
-        self._maybe_wait(self.supervisor.verify([node]), nowait)
-        print("-WAIT FOR SUPERVISOR")
+        maybe_wait(supervisor.verify([node]), nowait)
         return node
 
     def cancel_consumer(self, name, queue, nowait=False):
         nodes = self.Nodes.remove_queue_from_nodes(queue, name=name)
         if nodes:
-            self._maybe_wait(self.supervisor.verify(nodes), nowait)
+            maybe_wait(supervisor.verify(nodes), nowait)
         return nodes
 
     def remove_queue(self, queue, nowait=False):
         nodes = self.Nodes.remove_queue_from_nodes(queue)
-        self._maybe_wait(self.supervisor.verify(nodes), nowait)
+        maybe_wait(supervisor.verify(nodes), nowait)
+        return nodes
 cluster = Cluster()

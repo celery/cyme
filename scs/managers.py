@@ -61,24 +61,14 @@ class NodeManager(ExtendedManager):
     def enabled(self):
         return self.filter(is_enabled=True)
 
-    def disabled(self):
-        return self.filter(is_enabled=False)
-
     def _maybe_queues(self, queues):
-        acc = []
-        Queue = self.Queue
         if isinstance(queues, basestring):
             queues = queues.split(",")
-        for queue in queues:
-            if not isinstance(queue, Queue):
-                queue, _ = Queue._default_manager.get_or_create(name=queue)
-            acc.append(queue)
-        return [q.name for q in acc]
+        return [(queue.name if isinstance(queue, Queue) else queue)
+                    for queue in queues]
 
     def add(self, nodename=None, queues=None, max_concurrency=1,
             min_concurrency=1, broker=None, app=None):
-        nodename = nodename or gen_unique_id()
-
         node = self.create(name=nodename or gen_unique_id(),
                            max_concurrency=max_concurrency,
                            min_concurrency=min_concurrency,
@@ -94,29 +84,19 @@ class NodeManager(ExtendedManager):
             node.save()
         return node
 
-    def modify(self, nodename, queues, max_concurrency=None,
-            min_concurrency=None):
+    def _action(self, nodename, action, *args, **kwargs):
         node = self.get(name=nodename)
-        node.queues = self._maybe_queues(queues)
-        node.max_concurrency = max_concurrency
-        node.min_concurrency = min_concurrency
-        node.save()
+        getattr(node, action)(*args, **kwargs)
         return node
 
     def remove(self, nodename):
-        node = self.get(name=nodename)
-        node.delete()
-        return node
+        return self._action(nodename, "delete")
 
     def enable(self, nodename):
-        node = self.get(name=nodename)
-        node.enable()
-        return node
+        return self._action(nodename, "enable")
 
     def disable(self, nodename):
-        node = self.get(name=nodename)
-        node.disable()
-        return node
+        return self._action(nodename, "disable")
 
     def remove_queue_from_nodes(self, queue, **query):
         nodes = []
@@ -135,14 +115,6 @@ class NodeManager(ExtendedManager):
             nodes.append(node)
         return nodes
 
-    @property
-    def Queue(self):
-        return self.model.Queue
-
-    @property
-    def queues(self):
-        return self.Queue._default_manager
-
 
 class QueueManager(ExtendedManager):
 
@@ -150,8 +122,7 @@ class QueueManager(ExtendedManager):
         return self.filter(is_enabled=True)
 
     def _add(self, name, **declaration):
-        q, _ = self.get_or_create(name=name, defaults=declaration)
-        return q
+        return self.get_or_create(name=name, defaults=declaration)[0]
 
     def add(self, name, exchange=None, exchange_type=None,
             routing_key=None, **options):
