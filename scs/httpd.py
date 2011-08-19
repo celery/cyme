@@ -2,8 +2,6 @@
 
 from __future__ import absolute_import
 
-from time import sleep
-
 from eventlet import listen
 from eventlet import wsgi
 
@@ -22,13 +20,9 @@ class HttpServer(gThread):
 
     def run(self):
         addrport = self.addrport or ("", 8000)
-        sock = listen(addrport)
         handler = AdminMediaHandler(djwsgi.WSGIHandler())
-        # can't hook into eventlet.wsgi to add ready event,
-        # so have to do this little dance.
+        sock = listen(addrport)
         g = self.spawn(wsgi.server, sock, handler)
-        sleep(0.5)
         httpd_ready.send(sender=self, addrport=addrport,
                          handler=handler, sock=sock)
         return g.wait()
-

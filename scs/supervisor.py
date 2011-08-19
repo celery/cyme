@@ -275,6 +275,7 @@ class Supervisor(gThread):
 
 __current = None
 
+
 def set_current(sup):
     global __current
     __current = sup

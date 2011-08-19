@@ -1,4 +1,6 @@
+import errno
 import os
+import shutil
 import sys
 
 # funtest config
@@ -14,28 +16,32 @@ from .utils import unittest
 
 SCS_PORT = int(os.environ.get("SCS_PORT") or 8013)
 SCS_URL = "http://127.0.0.1:%s" % (SCS_PORT, )
+SCS_INSTANCE_DIR = os.path.abspath("instances")
 
 
-def say(msg):
-    sys.stderr.write(msg + "\n")
-
-
-@app(interactive=False)
+@app(interactive=False, instance_dir=SCS_INSTANCE_DIR)
 def start_agent(argv=None):
     from scs.agent import Agent
     ready_event = Event()
-    say("STARTING AGENT")
+    try:
+        os.mkdir("instances")
+    except OSError, exc:
+        if exc.errno != errno.EEXIST:
+            raise
     instance = Agent("127.0.0.1:%s" % (SCS_PORT, ), numc=1,
                      ready_event=ready_event)
     g = instance.start()
-    say("WAIT FOR AGENT")
     ready_event.wait()
-    say("AGENT READY")
     return instance, g
 
 
 def destroy_agent(g):
     g.cancel()
+
+
+def teardown():
+    if os.path.exists(SCS_INSTANCE_DIR):
+        shutil.rmtree(SCS_INSTANCE_DIR)
 
 
 class ClientTestCase(unittest.TestCase):

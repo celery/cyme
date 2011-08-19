@@ -27,6 +27,7 @@ from django.core import management
 
 class BaseApp(object):
     interactive = True
+    instance_dir = None
 
     def __call__(self, argv=None):
         return self.run_from_argv(argv)
@@ -36,6 +37,8 @@ class BaseApp(object):
             management.setup_environ(default_settings)
         else:
             imerge_settings(settings, default_settings)
+        if self.instance_dir:
+            settings.SCS_INSTANCE_DIR = self.instance_dir
 
     def syncdb(self):
         gp, getpass.getpass = getpass.getpass, getpass.fallback_getpass
