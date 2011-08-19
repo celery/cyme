@@ -2,6 +2,8 @@
 
 from __future__ import absolute_import
 
+import os
+
 from cl.g import spawn, timer
 from cl.log import LogMixin
 
@@ -26,11 +28,18 @@ class gThread(LogMixin):
     def start(self):
         self.before()
         try:
-            g = self.spawn(self.run)
+            g = self.spawn(self._crashsafe, self.run)
             self.debug("%s spawned" % (self.name, ))
             return g
         finally:
             self.after()
+
+    def _crashsafe(self, fun, *args, **kwargs):
+        try:
+            return fun(*args, **kwargs)
+        except Exception, exc:
+            self.error("Thread crash detected: %r" % (exc, ))
+            os._exit(0)
 
     def spawn(self, fun, *args, **kwargs):
         return spawn(fun, *args, **kwargs)

@@ -52,13 +52,16 @@ class ClientTestCase(unittest.TestCase):
         return Client
 
 
+_agent = [None]
+_agent_g = [None]
 class AgentTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.agent, self.agent_g = start_agent()
+        if _agent[0] is None:
+            _agent[0], _agent_g[0] = start_agent()
 
     def tearDown(self):
-        destroy_agent(self.agent_g)
+        destroy_agent(_agent_g[0])
 
 
 class test_create_app(AgentTestCase, ClientTestCase):
