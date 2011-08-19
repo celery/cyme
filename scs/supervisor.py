@@ -91,7 +91,7 @@ class Supervisor(gThread):
     paused = False
 
     #: Time in seconds as a float to reschedule.
-    interval = 5
+    interval = 60.0
 
     def __init__(self, interval=None, queue=None):
         self.interval = interval or self.interval

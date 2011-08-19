@@ -23,6 +23,7 @@ class HttpServer(gThread):
         handler = AdminMediaHandler(djwsgi.WSGIHandler())
         sock = listen(addrport)
         g = self.spawn(wsgi.server, sock, handler)
+        self.info("ready")
         httpd_ready.send(sender=self, addrport=addrport,
                          handler=handler, sock=sock)
         return g.wait()

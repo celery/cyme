@@ -5,7 +5,7 @@ djcelery.setup_loader()
 DEBUG = True
 
 # Broker settings.
-BROKER_HOST = "127.0.0.1"
+BROKER_HOST = "amqp://127.0.0.1:5672//"
 BROKER_POOL_LIMIT = 100
 
 

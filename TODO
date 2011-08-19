@@ -1,1 +1,2 @@
 * When deleting an app, this should also delete all resources owned by an app.
+* Broker URLS (-b option to celery/scs)

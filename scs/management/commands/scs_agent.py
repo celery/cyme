@@ -46,19 +46,56 @@ Options
 
 from __future__ import absolute_import
 
+import atexit
+import logging
+import os
 import sys
 
 from optparse import make_option as Option
 
-from celery.utils import LOG_LEVELS
+from celery.bin.base import daemon_options
+from celery.platforms import (create_pidlock, detached,
+                              signals, set_process_title)
+from celery.log import colored
+from celery.utils import LOG_LEVELS, get_cls_by_name
+from cl.utils import shortuuid
 from djcelery.management.base import CeleryCommand
 
 from django.conf import settings
 
+from scs import __version__
+from scs.signals import agent_ready
+from scs.utils import cached_property
+
+BANNER = """
+ -------------- scs@%(id)s v%(version)s
+---- **** -----
+--- * ***  * -- [Configuration]
+-- * - **** ---   . url:         http://%(addr)s:%(port)s
+- ** ----------   . broker:      %(broker)s
+- ** ----------   . logfile:     %(logfile)s@%(loglevel)s
+- ** ----------   . sup:         interval=%(sup.interval)s
+- ** ----------   . presence:    interval=%(presence.interval)s
+- *** --- * ---   . controllers: #%(controllers)s
+-- ******* ----
+--- ***** -----
+ -------------- http://celeryproject.org
+"""
+DEFAULT_DETACH_LOGFILE = "agent.log"
+DEFAULT_DETACH_PIDFILE = "agent.pid"
+
 
 class Command(CeleryCommand):
+    name = "scs-agent"
     args = '[optional port number, or ipaddr:port]'
     option_list = CeleryCommand.option_list + (
+        Option('--broker', '-b',
+            default=None, action="store", dest="broker",
+            help="""Broker URL to use for agent connection.\
+                    Default is amqp://guest:guest@localhost:5672//"""),
+        Option('--detach',
+            default=False, action="store_true", dest="detach",
+            help="Detach and run in the background."),
         Option("-i", "--id",
                default=None, action="store", dest="id",
                help="Set explicit agent id."),
@@ -66,11 +103,8 @@ class Command(CeleryCommand):
                default=False, action="store_true", dest="without_httpd",
                help="Disable HTTP server"),
        Option('-l', '--loglevel',
-              default="INFO", action="store", dest="loglevel",
+              default="WARNING", action="store", dest="loglevel",
               help="Choose between DEBUG/INFO/WARNING/ERROR/CRITICAL"),
-       Option('-f', '--logfile',
-              default=None, action="store", dest="logfile",
-              help="Path to log file, stderr by default."),
        Option('-D', '--instance-dir',
               default=None, action="store", dest="instance_dir",
               help="Custom instance dir. Default is /var/run/scs"),
@@ -78,20 +112,70 @@ class Command(CeleryCommand):
               default=2, action="store", type="int", dest="numc",
               help="Number of controllers to start.  Default is 2"),
        Option('--sup-interval',
-              default=5, action="store", type="int", dest="sup_interval",
-              help="Supervisor schedule interval.  Default is 5 seconds."),
-    )
+              default=60, action="store", type="int", dest="sup_interval",
+              help="Supervisor schedule interval.  Default is every minute."),
+    ) + daemon_options(DEFAULT_DETACH_PIDFILE)
 
     help = 'Starts the SCS agent'
     # see http://code.djangoproject.com/changeset/13319.
     stdout, stderr = sys.stdout, sys.stderr
 
+    def get_version(self):
+        return "scs v%s" % (__version__, )
+
     def handle(self, *args, **kwargs):
         """Handle the management command."""
-        loglevel = kwargs.get("loglevel")
-        instance_dir = kwargs.get("instance_dir")
+        from scs.agent import Agent
+        kwargs = self.prepare_options(**kwargs)
+        self.colored = colored(kwargs.get("logfile"))
+        agent = self.agent = Agent(*args, **kwargs)
+        addr, port = agent.addrport
+        print(str(self.colored.cyan(self.banner())))
+        agent_ready.connect(self.on_agent_ready)
+        self.set_process_title("boot")
+        self.detach = kwargs.get("detach", False)
+        if self.detach:
+            return self.detach(**kwargs)
+        return self._start(pidfile=kwargs.get("pidfile"))
+
+    def stop(self):
+        self.set_process_title("shutdown...")
+
+    def on_agent_ready(self, sender=None, **kwargs):
+        pid = os.getpid()
+        self.set_process_title("ready")
+        if not self.detach and \
+                not self.agent.logger.isEnabledFor(logging.INFO):
+            print(str(self.colored.green("(%s) agent ready" % (pid, ))))
+        sender.info(str(self.colored.green("[READY] (%s)" % (pid, ))))
+
+    def detach(self, logfile=None, pidfile=None, uid=None, gid=None,
+            umask=None, working_directory=None, **kwargs):
+        print("detaching... [pidfile=%s logfile=%s]" % (pidfile, logfile))
+        with detached(logfile, pidfile, uid, gid, umask, working_directory):
+            return self._start(pidfile=pidfile)
+
+    def _start(self, pidfile=None):
+        self.install_signal_handlers()
+        if pidfile:
+            pidlock = create_pidlock(pidfile).acquire()
+            atexit.register(pidlock.release)
+        return self.agent.start().wait()
+
+    def prepare_options(self, broker=None, loglevel=None, logfile=None,
+            pidfile=None, detach=None, instance_dir=None, **kwargs):
+        if detach:
+            logfile = logfile or DEFAULT_DETACH_LOGFILE
+            pidfile = pidfile or DEFAULT_DETACH_PIDFILE
+        if broker:
+            settings.BROKER_HOST = broker
         if instance_dir:
-            settings.SCS_INSTANCE_DIR = instance_dir
+            settings.SCS_INSTANCE_DIR = \
+                    os.path.abspath(instance_dir)
+        if pidfile and not os.path.isabs(pidfile):
+            pidfile = os.path.join(self.instance_dir, pidfile)
+        if logfile and not os.path.isabs(logfile):
+            logfile = os.path.join(self.instance_dir, logfile)
         if not isinstance(loglevel, int):
             try:
                 loglevel = LOG_LEVELS[loglevel.upper()]
@@ -99,10 +183,46 @@ class Command(CeleryCommand):
                 self.die("Unknown level %r. Please use one of %s." % (
                             loglevel, "|".join(l for l in LOG_LEVELS.keys()
                                         if isinstance(l, basestring))))
-        kwargs["loglevel"] = loglevel
-        from scs.agent import Agent
-        Agent(*args, **kwargs).start().wait()
+        return dict(kwargs, loglevel=loglevel, detach=detach,
+                            logfile=logfile, pidfile=pidfile)
+
+    def banner(self):
+        agent = self.agent
+        addr, port = agent.addrport
+        con = agent.controllers
+        pres = con[0].presence
+        sup = agent.supervisor
+        return BANNER % {"id": agent.id,
+                         "version": __version__,
+                         "broker": agent.connection.as_uri(),
+                         "loglevel": LOG_LEVELS[agent.loglevel],
+                         "logfile": agent.logfile or "[stderr]",
+                         "addr": addr or "localhost",
+                         "port": port or 8000,
+                         "sup.interval": sup.interval,
+                         "presence.interval": pres.interval,
+                         "controllers": len(con)}
 
     def die(self, msg, exitcode=1):
         sys.stderr.write("Error: %s\n" % (msg, ))
         sys.exit(exitcode)
+
+    def install_signal_handlers(self):
+
+        def handle_exit(signum, frame):
+            self.agent.info("shutdown")
+            raise SystemExit()
+
+        for signal in ("TERM", "INT"):
+            signals[signal] = handle_exit
+
+    def set_process_title(self, info):
+        set_process_title("%s#%s" % (self.name, shortuuid(self.agent.id)),
+                          "%s (-D %s)" % (info, self.instance_dir))
+
+    def repr_controller_id(self, c):
+        return shortuuid(c) + c[-2:]
+
+    @cached_property
+    def instance_dir(self):
+        return get_cls_by_name("scs.conf.SCS_INSTANCE_DIR")

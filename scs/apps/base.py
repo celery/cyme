@@ -18,6 +18,7 @@ import getpass
 import logging
 import sys
 
+from .. import __version__
 from .. import settings as default_settings
 from ..utils import imerge_settings
 
@@ -48,8 +49,14 @@ class BaseApp(object):
         finally:
             getpass.getpass = gp
 
+    def get_version(self):
+        return "scs v%s" % (__version__, )
+
     def run_from_argv(self, argv=None):
         argv = sys.argv if argv is None else argv
+        if '--version' in argv:
+            print(self.get_version())
+            sys.exit(0)
         try:
             self.configure()
             self.syncdb()
@@ -64,6 +71,7 @@ class BaseApp(object):
         except KeyboardInterrupt:
             if DEBUG:
                 raise
+            raise SystemExit()
 
 
 def app(**attrs):

@@ -5,11 +5,11 @@ from __future__ import absolute_import
 import logging
 
 from celery import current_app as celery
-from celery.utils import instantiate
+from celery.utils import instantiate, LOG_LEVELS
 from kombu.utils import gen_unique_id
 
 from . import signals
-from . import supervisor as _sup
+from . import supervisor
 from .models import Broker, Node
 from .state import state
 from .thread import gThread
@@ -22,10 +22,7 @@ class Agent(gThread):
     httpd = None
     controller = None
 
-    _components_ready = {"httpd": False,
-                         "controllers": False,
-                         "supervisor": False}
-    _controllers_ready = 0
+    _components_ready = {}
     _ready = False
 
     def __init__(self, addrport="", id=None, loglevel=logging.INFO,
@@ -44,28 +41,23 @@ class Agent(gThread):
         self.ready_event = ready_event
         if not self.without_httpd:
             self.httpd = instantiate(self.httpd_cls, addrport)
-        else:
-            self._components_ready["httpd"] = True
-        supervisor = _sup.set_current(instantiate(
+        self.supervisor = supervisor.set_current(instantiate(
                             self.supervisor_cls, sup_interval))
         self.controllers = [instantiate(self.controller_cls,
                                    id="%s.%s" % (self.id, i),
                                    connection=self.connection)
                                 for i in xrange(1, numc + 1)]
-        components = [self.httpd, supervisor] + self.controllers
-        self.components = list(filter(None, components))
+        c = [self.httpd, self.supervisor] + self.controllers
+        c = self.components = list(filter(None, c))
+        self._components_ready = dict(zip(c, [False] * len(c)))
         super(Agent, self).__init__()
 
-    def on_controller_ready(self, **kwargs):
-        self._controllers_ready += 1
-        if self._controllers_ready >= self.numc:
-            signals.all_controllers_ready.send(sender=self,
-                                               controllers=self.controllers)
-            signals.controller_ready.disconnect(self.on_controller_ready)
+    def on_controller_ready(self, sender=None, **kwargs):
+        self._component_ready(sender)
 
-    def _component_ready(self, component):
+    def _component_ready(self, sender=None, **kwargs):
         if not self._ready:
-            self._components_ready[component] = True
+            self._components_ready[sender] = True
             if all(self._components_ready.values()):
                 if self.ready_event:
                     self.ready_event.send()
@@ -73,27 +65,13 @@ class Agent(gThread):
                 signals.agent_ready.send(sender=self)
                 self._ready = True
 
-    def on_all_controllers_ready(self, **kwargs):
-        self._component_ready("controllers")
-        signals.all_controllers_ready.disconnect(self.on_all_controllers_ready)
-
-    def on_httpd_ready(self, **kwargs):
-        self._component_ready("httpd")
-        signals.httpd_ready.disconnect(self.on_httpd_ready)
-
-    def on_supervisor_ready(self, **kwargs):
-        self._component_ready("supervisor")
-        signals.supervisor_ready.disconnect(self.on_supervisor_ready)
-
     def on_ready(self, **kwargs):
-        self.info("all systems go")
-        signals.agent_ready.disconnect(self.on_ready)
+        pass
 
     def prepare_signals(self):
-        signals.controller_ready.connect(self.on_controller_ready)
-        signals.httpd_ready.connect(self.on_httpd_ready)
-        signals.supervisor_ready.connect(self.on_supervisor_ready)
-        signals.all_controllers_ready.connect(self.on_all_controllers_ready)
+        signals.controller_ready.connect(self._component_ready)
+        signals.httpd_ready.connect(self._component_ready)
+        signals.supervisor_ready.connect(self._component_ready)
         signals.agent_ready.connect(self.on_ready)
 
     def run(self):
@@ -170,5 +148,5 @@ class Cluster(object):
 
     @property
     def sup(self):
-        return _sup.supervisor
+        return supervisor.supervisor
 cluster = Cluster()
