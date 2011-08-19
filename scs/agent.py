@@ -36,7 +36,7 @@ class Agent(gThread):
         controllers = [instantiate(self.controller_cls,
                                    id="%s.%s" % (self.id, i),
                                    connection=self.connection)
-                            for i in xrange(numc)]
+                            for i in xrange(1, numc + 1)]
         components = [self.httpd, supervisor] + controllers
         self.components = list(filter(None, components))
         super(Agent, self).__init__()

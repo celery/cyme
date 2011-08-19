@@ -3,7 +3,10 @@ from requests import request
 
 from . import __version__
 
+#: SCS User Agent string.
 UA = "Celery/SCS v%s" % (__version__, )
+
+#: Default HTTP headers to pass to the dispatched request.
 DEFAULT_HEADERS = {"User-Agent": UA}
 
 

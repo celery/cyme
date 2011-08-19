@@ -5,8 +5,8 @@ from __future__ import absolute_import
 from functools import partial
 
 from cl import Actor
-from cl.presence import AwareAgent, AwareActorMixin
-from cl.utils import flatten, first_or_raise
+from cl.presence import AwareAgent, AwareActorMixin, announce_after
+from cl.utils import flatten, first_or_raise, shortuuid
 from celery import current_app as celery
 from kombu import Exchange
 
@@ -26,7 +26,7 @@ class SCSActor(Actor, AwareActorMixin):
     def __init__(self, connection=None, *args, **kwargs):
         if not connection:
             connection = celery.broker_connection()
-        super(SCSActor, self).__init__(connection, *args, **kwargs)
+        Actor.__init__(self, connection, *args, **kwargs)
 
         # retry publishing messages by default if running as scs-agent.
         self.retry = state.is_agent
@@ -116,44 +116,46 @@ class NodeActor(SCSActor):
                 raise self.Next()
             return x.as_dict()
 
+        @announce_after
         def add(self, name=None, app=None, **kwargs):
-            return self.agent.add(name, app=apps.get(app), **kwargs).as_dict()
+            return self.scs.add(name, app=apps.get(app), **kwargs).as_dict()
 
+        @announce_after
         def remove(self, name, app=None):
-            return self.agent.remove(name) and "ok"
+            return self.scs.remove(name) and "ok"
 
         def restart(self, name, app=None):
-            return self.agent.restart(name) and "ok"
+            return self.scs.restart(name) and "ok"
 
         def enable(self, name, app=None):
-            return self.agent.enable(name) and "ok"
+            return self.scs.enable(name) and "ok"
 
         def disable(self, name, app=None):
-            return self.agent.disable(name) and "ok"
+            return self.scs.disable(name) and "ok"
 
         def add_consumer(self, name, queue):
-            return self.agent.add_consumer(name, queue) and "ok"
+            return self.scs.add_consumer(name, queue) and "ok"
 
         def cancel_consumer(self, name, queue):
-            return self.agent.cancel_consumer(name, queue) and "ok"
+            return self.scs.cancel_consumer(name, queue) and "ok"
 
         def remove_queue_from_all(self, queue):
             return [node.name for node in
                         Node.objects.remove_queue_from_nodes(queue)]
 
         def autoscale(self, name, max=None, min=None):
-            node = self.agent.get(name)
+            node = self.scs.get(name)
             node.autoscale(max=max, min=min)
             return {"max": node.max_concurrency, "min": node.min_concurrency}
 
         def consuming_from(self, name):
-            return self.agent.get(name).consuming_from()
+            return self.scs.get(name).consuming_from()
 
         def stats(self, name):
-            return self.agent.get(name).stats()
+            return self.scs.get(name).stats()
 
         @cached_property
-        def agent(self):
+        def scs(self):
             from .agent import cluster
             return cluster
 
@@ -227,9 +229,11 @@ class QueueActor(SCSActor):
             except Queue.DoesNotExist:
                 raise KeyError(name)
 
+        @announce_after
         def add(self, name, **declaration):
             return Queue.objects._add(name, **declaration).as_dict()
 
+        @announce_after
         def delete(self, name):
             Queue.objects.filter(name=name).delete()
             return "ok"
@@ -238,15 +242,15 @@ class QueueActor(SCSActor):
         return flatten(self.scatter("all"))
 
     def get(self, name):
-        #try:
-        #    # see if we have the queue locally.
-        #    return self.state.get(name)
-        #except KeyError:
-        #    # if not, ask the agents.
-        return self.send_to_able("get", {"name": name}, to=name)
+        try:
+            # see if we have the queue locally.
+            return self.state.get(name)
+        except KeyError:
+            # if not, ask the agents.
+            return self.send_to_able("get", {"name": name}, to=name)
 
-    def add(self, name, **decl):
-        return self.throw("add", dict({"name": name}, **decl))
+    def add(self, name, nowait=False, **decl):
+        return self.throw("add", dict({"name": name}, **decl), nowait=nowait)
 
     def delete(self, name, **kw):
         nodes.remove_queue_from_all(name, nowait=True)
@@ -274,3 +278,7 @@ class Controller(ControllerBase, gThread):
 
     def on_connection_revived(self):
         state.on_broker_revive()
+
+    @property
+    def logger_name(self):
+        return '#'.join([self.__class__.__name__, shortuuid(self.id)])

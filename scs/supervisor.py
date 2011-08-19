@@ -148,12 +148,11 @@ class Supervisor(gThread):
         return self._request(nodes, self._do_stop_node)
 
     def before(self):
-        pass
-        #self.start_periodic_timer(5, self._verify_all)
+        self.start_periodic_timer(5, self._verify_all)
 
     def run(self):
         queue = self.queue
-        self.info("started...")
+        self.info("started")
         while 1:
             nodes, event, action, kwargs = queue.get()
             self.info("wake-up")

@@ -4,6 +4,7 @@ from __future__ import absolute_import
 
 from . import base
 
+
 class Client(base.Client):
     app = "scs"
 
@@ -52,16 +53,18 @@ class Client(base.Client):
                              params={"max": max, "min": min})
 
     class Queues(base.Section):
-        repr = "Queue"
-        fields = ("name", "exchange", "exchange_type",
-                  "routing_key", "options")
+
+        class Model(base.Model):
+            repr = "Queue"
+            fields = ("name", "exchange", "exchange_type",
+                      "routing_key", "options")
 
         def delete(self, name):
             return self.DELETE(self.path / name)
 
         def add(self, name, exchange=None, exchange_type=None,
                 routing_key=None, **options):
-            options = anyjson.serialize(options) if options else None
+            options = self.serialize(options) if options else None
             return self.PUT(self.path / name,
                             data={"exchange": exchange,
                                 "exchange_type": exchange_type,
@@ -107,4 +110,3 @@ class Client(base.Client):
 
     def __repr__(self):
         return "<Client: %r>" % (self.build_url(""), )
-

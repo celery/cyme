@@ -12,7 +12,7 @@ if DEBUG_READERS:
     print("+++ MULTIPLE READERS ALLOWED +++")
 if DEBUG_BLOCK:
     eventlet.debug.hub_blocking_detection(True)
-    print("+++ BLOCING DETECTION ENABLED +++")
+    print("+++ BLOCKING DETECTION ENABLED +++")
 
 import getpass
 import logging
@@ -52,8 +52,9 @@ class BaseApp(object):
                 from celery.apps.worker import install_cry_handler
                 install_cry_handler(logging.getLogger())
             from cl import pools
-            from celery import current_app
-            pools.set_limit(current_app.conf.BROKER_POOL_LIMIT)
+            from celery import current_app as celery
+            pools.set_limit(celery.conf.BROKER_POOL_LIMIT)
+            celery._pool = pools.connections[celery.broker_connection()]
             return self.run(argv)
         except KeyboardInterrupt:
             if DEBUG:

@@ -9,7 +9,7 @@ from urllib import quote
 
 from celery.datastructures import AttributeDict
 
-from .. import __version__
+from .. import __version__, DEBUG
 from ..utils import cached_property
 
 
@@ -124,6 +124,8 @@ class Client(Base):
         return self._request(method, self.build_url(path), params, data, type)
 
     def _request(self, method, url, params=None, data=None, type=None):
+        if DEBUG:
+            print("<REQ> %s %r" % (method, url))
         type = type or AttributeDict
         r = requests.request(method, str(url),
                              headers=self.headers,

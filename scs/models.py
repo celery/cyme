@@ -288,26 +288,21 @@ class Node(models.Model):
         timeout = kwargs.setdefault("timeout", 3)
         name = self.name
         producer = None
-        pool = None
         if "connection" not in kwargs:
-            print("+ACQUIRE PRODUCER")
             producer = self.broker.producers.acquire(block=True, timeout=3)
-            print("-ACQUIRE PRODUCER")
             kwargs.update(connection=producer.connection,
                           channel=producer.channel)
         try:
-            print("+BROADCAST")
             try:
                 with Timeout(timeout):
-                    r = celery.control.broadcast(cmd, arguments=args, reply=True,
-                                                destination=[name], **kwargs)
+                    r = celery.control.broadcast(cmd,
+                                                 arguments=args, reply=True,
+                                                 destination=[name], **kwargs)
             except Timeout:
                 return None
-            print("-BROADCAST")
             return self.my_reply(r)
         finally:
             if producer is not None:
-                print("RELEASE PRODUCER")
                 producer.release()
 
     def my_reply(self, replies):

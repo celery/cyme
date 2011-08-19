@@ -32,6 +32,12 @@ Options
     Custom instance directory (deafult is /var/run/scs)
     Must be writeable by the user scs-agent runs as.
 
+.. cmdoption:: -C, --numc
+
+    Number of controllers to start, to handle simultaneous
+    requests.  Each controller requires one AMQP connection.
+    Default is 2.
+
 """
 
 from __future__ import absolute_import
@@ -64,6 +70,9 @@ class Command(CeleryCommand):
        Option('-D', '--instance-dir',
               default=None, action="store", dest="instance_dir",
               help="Custom instance dir. Default is /var/run/scs"),
+       Option('-C', '--numc',
+              default=2, action="store", type="int", dest="numc",
+              help="Number of controllers to start.  Default is 2"),
     )
 
     help = 'Starts the SCS agent'

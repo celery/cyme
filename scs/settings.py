@@ -7,6 +7,10 @@ BROKER_POOL_LIMIT = 100
 import djcelery
 djcelery.setup_loader()
 
+CELERYD_LOG_FORMAT = """\
+[%(asctime)s: %(levelname)s] %(message)s"\
+""".strip()
+
 # Databases
 DATABASES = {'default': {
                 'ENGINE': 'django.db.backends.sqlite3',

@@ -12,23 +12,28 @@ class gThread(LogMixin):
     def __init__(self):
         self.name = self.name or self.__class__.__name__
 
+    def before(self):
+        """Called at the beginning of :meth:`start`."""
+        pass
+
     def run(self):
         raise NotImplementedError("gThreads must implement 'run'")
 
-    def before(self):
-        pass
-
     def after(self):
+        """Called at the end of :meth:`start`."""
         pass
 
     def start(self):
         self.before()
         try:
-            g = spawn(self.run)
+            g = self.spawn(self.run)
             self.debug("%s spawned" % (self.name, ))
             return g
         finally:
             self.after()
+
+    def spawn(self, fun, *args, **kwargs):
+        return spawn(fun, *args, **kwargs)
 
     def start_periodic_timer(self, interval, fun, *args, **kwargs):
         return timer(interval, fun, *args, **kwargs)
