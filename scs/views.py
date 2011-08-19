@@ -20,7 +20,7 @@ class App(web.ApiView):
         return apps.get(app).as_dict() if app else apps.all()
 
     def put(self, request, app=None):
-        return self.Created(apps.add(app or uuid(),
+        return self.Created(apps.add(app or uuid(), 
                             **self.params("hostname", ("port", int), "userid",
                                           "password", "virtual_host")))
     post = put

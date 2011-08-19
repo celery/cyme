@@ -46,6 +46,8 @@ Error = partial(JsonResponse, status=http.INTERNAL_SERVER_ERROR)
 class ApiView(View):
     nowait = False
     _semipredicate = object()
+    typemap = {int: lambda i: int(i) if i else None,
+               float: lambda f: float(f) if f else None}
 
     def dispatch(self, *args, **kwargs):
         self.nowait = kwargs.get("nowait", False)
@@ -88,15 +90,17 @@ class ApiView(View):
         return default
 
     def params(self, *keys):
-        return dict((key, self.get_param(key)) for key in keys)
+        return dict(self.get_param(key) for key in keys)
 
     def get_param(self, key, type=None):
+        semipredicate = self._semipredicate
         if isinstance(key, (list, tuple)):
             key, type = key
-        value = self.get_or_post(key, self._semipredicate)
-        if type and value != self._semipredicate:
-            return type(value)
-        return value
+            type = self.typemap.get(type, type)
+        value = self.get_or_post(key, semipredicate)
+        if type and value != semipredicate:
+            return key, type(value)
+        return key, None if value == semipredicate else value
 
 
 def simple_get(fun):

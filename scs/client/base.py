@@ -103,7 +103,7 @@ class Section(Base):
 
 
 class Client(Base):
-    default_url = "http://localhost:8000"
+    default_url = "http://127.0.0.1:8000"
 
     def __init__(self, url=None):
         self.url = url.rstrip("/") if url else self.default_url
@@ -123,15 +123,29 @@ class Client(Base):
     def request(self, method, path, params=None, data=None, type=None):
         return self._request(method, self.build_url(path), params, data, type)
 
+    def _prepare(self, d):
+        if d:
+            return dict((key, value if value is not None else "")
+                            for key, value in d.iteritems())
+
     def _request(self, method, url, params=None, data=None, type=None):
         if DEBUG:
-            print("<REQ> %s %r" % (method, url))
+            print("<REQ> %s %r data=%r params=%r" % (method, url,
+                                                     data, params))
+        data = self._prepare(data)
+        params = self._prepare(params)
         type = type or AttributeDict
         r = requests.request(method, str(url),
                              headers=self.headers,
                              params=params, data=data)
+        data = None
+        if DEBUG:
+            data = r.read()
+            print("<RES> %r" % (data, ))
         if r.ok:
-            ret = self.deserialize(r.read())
+            if data is None:
+                data = r.read()
+            ret = self.deserialize(data)
             if isinstance(ret, dict):
                 return type(ret)
             return ret

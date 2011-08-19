@@ -1,20 +1,24 @@
+import os
+import djcelery
+djcelery.setup_loader()
+
 DEBUG = True
 
 # Broker settings.
 BROKER_HOST = "127.0.0.1"
 BROKER_POOL_LIMIT = 100
 
-import djcelery
-djcelery.setup_loader()
 
 CELERYD_LOG_FORMAT = """\
-[%(asctime)s: %(levelname)s] %(message)s"\
+[%(asctime)s: %(levelname)s] %(message)s\
 """.strip()
+
+DB_NAME = os.environ.get("SCS_DB_NAME") or "scs.sqlite"
 
 # Databases
 DATABASES = {'default': {
                 'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': 'scs.sqlite',
+                'NAME': DB_NAME,
             }}
 
 # URL and file paths.

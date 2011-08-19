@@ -5,12 +5,24 @@ from __future__ import absolute_import
 from . import base
 
 
+# XXX `requests` does not currently seem to support using the
+#     data argument with PUT requests.
+
+
+class Instance(base.Model):
+    pass
+
+
+class Queue(base.Model):
+    pass
+
+
 class Client(base.Client):
     app = "scs"
 
     class Instances(base.Section):
 
-        class Model(base.Model):
+        class Model(Instance):
             repr = "Instance"
             fields = ("name", "broker", "min_concurrency", "max_concurrency",
                       "queues", "is_enabled")
@@ -22,9 +34,13 @@ class Client(base.Client):
                     self.path = self.client.path / name / "queues"
 
                 def add(self, queue):
-                    return self.PUT(self.path / queue)
+                    if isinstance(queue, Queue):
+                        queue = queue.name
+                    return self.POST(self.path / queue)
 
-                def remove(self, queue):
+                def delete(self, queue):
+                    if isinstance(queue, Queue):
+                        queue = queue.name
                     return self.DELETE(self.path / queue)
 
                 def all(self):
@@ -54,7 +70,7 @@ class Client(base.Client):
 
     class Queues(base.Section):
 
-        class Model(base.Model):
+        class Model(Queue):
             repr = "Queue"
             fields = ("name", "exchange", "exchange_type",
                       "routing_key", "options")
@@ -65,7 +81,7 @@ class Client(base.Client):
         def add(self, name, exchange=None, exchange_type=None,
                 routing_key=None, **options):
             options = self.serialize(options) if options else None
-            return self.PUT(self.path / name,
+            return self.POST(self.path / name,
                             data={"exchange": exchange,
                                 "exchange_type": exchange_type,
                                 "routing_key": routing_key,
@@ -80,7 +96,7 @@ class Client(base.Client):
 
     def add(self, name, hostname=None, port=None, userid=None,
             password=None, virtual_host=None):
-        return self.create_model(name, self.root("PUT", name,
+        return self.create_model(name, self.root("POST", name,
                                  data={"hostname": hostname,
                                        "port": port,
                                         "userid": userid,

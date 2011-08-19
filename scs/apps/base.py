@@ -26,6 +26,7 @@ from django.core import management
 
 
 class BaseApp(object):
+    interactive = True
 
     def __call__(self, argv=None):
         return self.run_from_argv(argv)
@@ -39,7 +40,8 @@ class BaseApp(object):
     def syncdb(self):
         gp, getpass.getpass = getpass.getpass, getpass.fallback_getpass
         try:
-            management.call_command("syncdb")
+            management.call_command("syncdb",
+                                    interactive=self.interactive)
         finally:
             getpass.getpass = gp
 
@@ -61,10 +63,17 @@ class BaseApp(object):
                 raise
 
 
-def app(fun):
+def app(**attrs):
+    x = attrs
 
-    def run(self, *args, **kwargs):
-        return fun(*args, **kwargs)
+    def _app(fun):
 
-    return type(fun.__name__, (BaseApp, ), {
-        "run": run, "__module__": fun.__module__, "__doc__": fun.__doc__})()
+        def run(self, *args, **kwargs):
+            return fun(*args, **kwargs)
+
+        attrs = dict({"run": run, "__module__": fun.__module__,
+                      "__doc__": fun.__doc__}, **x)
+
+        return type(fun.__name__, (BaseApp, ), attrs)()
+
+    return _app

@@ -38,6 +38,10 @@ Options
     requests.  Each controller requires one AMQP connection.
     Default is 2.
 
+.. cmdoption:: --sup-interval
+
+    Supervisor schedule Interval in seconds.  Default is 5.
+
 """
 
 from __future__ import absolute_import
@@ -73,6 +77,9 @@ class Command(CeleryCommand):
        Option('-C', '--numc',
               default=2, action="store", type="int", dest="numc",
               help="Number of controllers to start.  Default is 2"),
+       Option('--sup-interval',
+              default=5, action="store", type="int", dest="sup_interval",
+              help="Supervisor schedule interval.  Default is 5 seconds."),
     )
 
     help = 'Starts the SCS agent'

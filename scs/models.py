@@ -5,6 +5,7 @@ from __future__ import absolute_import, with_statement
 import errno
 import logging
 import os
+import warnings
 
 from threading import Lock
 
@@ -248,7 +249,14 @@ class Node(models.Model):
             q = q.as_dict()
         else:
             from .controller import queues
-            q = queues.get(q)
+            try:
+                q = queues.get(q)
+            except queues.NoRouteError:
+                self.queues.remove(q)
+                self.save()
+                warnings.warn(
+                    "Removed unknown consumer: %r from %r" % (q, self.name))
+                return
         name = q["name"]
         options = deserialize(q["options"]) if q.get("options") else {}
         exchange = q["exchange"] if q["exchange"] else name

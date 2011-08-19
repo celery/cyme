@@ -9,7 +9,7 @@ from django.core import management
 from .base import app
 
 
-@app
+@app()
 def scssh(argv):
     if os.environ.get("SCS_LOG_DEBUG", False):
         from celery import current_app as celery

@@ -13,6 +13,7 @@ from kombu import Exchange
 from . import conf
 from . import metrics
 from .models import App, Node, Queue
+from .signals import controller_ready
 from .state import state
 from .thread import gThread
 from .utils import cached_property
@@ -265,6 +266,7 @@ queues = QueueActor()
 class Controller(ControllerBase, gThread):
     actors = [AppActor(), NodeActor(), QueueActor()]
     connect_max_retries = celery.conf.BROKER_CONNECTION_MAX_RETRIES
+    _ready_sent = False
 
     def __init__(self, *args, **kwargs):
         ControllerBase.__init__(self, *args, **kwargs)
@@ -272,12 +274,17 @@ class Controller(ControllerBase, gThread):
 
     def on_awake(self):
         # bind global actors to this agent,
-        # so precense can be used.
+        # so prescense can be used.
         for actor in (apps, nodes, queues):
             actor.agent = self
 
     def on_connection_revived(self):
         state.on_broker_revive()
+
+    def on_consume_ready(self):
+        if not self._ready_sent:
+            controller_ready.send(sender=self)
+            self._ready_sent = True
 
     @property
     def logger_name(self):

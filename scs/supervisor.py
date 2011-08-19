@@ -8,6 +8,8 @@ from collections import defaultdict
 from threading import Lock
 
 from celery.datastructures import TokenBucket
+from celery.local import LocalProxy
+from celery.log import SilenceRepeated
 from celery.utils.timeutils import rate
 from eventlet.queue import LightQueue
 from eventlet.event import Event
@@ -15,6 +17,7 @@ from kombu.syn import blocking
 from kombu.utils import fxrangemax
 
 from .models import Node
+from .signals import supervisor_ready
 from .state import state
 from .thread import gThread
 
@@ -87,25 +90,32 @@ class Supervisor(gThread):
     #: Connection errors pauses the supervisor, so events does not accumulate.
     paused = False
 
-    def __init__(self, queue=None):
+    #: Time in seconds as a float to reschedule.
+    interval = 5
+
+    def __init__(self, interval=None, queue=None):
+        self.interval = interval or self.interval
         self.queue = LightQueue() if queue is None else queue
         self._buckets = defaultdict(lambda: TokenBucket(
                                     rate(self.restart_max_rate)))
         self._pause_mutex = Lock()
         self._last_update = None
         super(Supervisor, self).__init__()
+        self._rinfo = SilenceRepeated(self.info, max_iterations=30)
 
     def pause(self):
         """Pause all timers."""
         with self._pause_mutex:
-            self.info("pausing")
-            self.paused = True
+            if not self.paused:
+                self.debug("pausing")
+                self.paused = True
 
     def resume(self):
         """Resume all timers."""
         with self._pause_mutex:
-            self.info("resuming")
-            self.paused = False
+            if self.paused:
+                self.debug("resuming")
+                self.paused = False
 
     def verify(self, nodes, ratelimit=False):
         """Verify the consistency of one or more nodes.
@@ -148,14 +158,15 @@ class Supervisor(gThread):
         return self._request(nodes, self._do_stop_node)
 
     def before(self):
-        self.start_periodic_timer(5, self._verify_all)
+        self.start_periodic_timer(self.interval, self._verify_all)
 
     def run(self):
         queue = self.queue
         self.info("started")
+        supervisor_ready.send(sender=self)
         while 1:
             nodes, event, action, kwargs = queue.get()
-            self.info("wake-up")
+            self._rinfo("wake-up")
             try:
                 for node in nodes:
                     try:
@@ -261,4 +272,18 @@ class Supervisor(gThread):
             self.warn("%s: node.set_autoscale max=%r min=%r" % (
                 node, max, min))
             ib(node.autoscale, max, min)
-supervisor = Supervisor()
+
+__current = None
+
+def set_current(sup):
+    global __current
+    __current = sup
+    return __current
+
+
+def get_current():
+    if __current is None:
+        set_current(Supervisor())
+    return __current
+
+supervisor = LocalProxy(get_current)
