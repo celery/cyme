@@ -102,8 +102,8 @@ class Section(Base):
         return self.path / name
 
     def create_model(self, *args, **kwargs):
-        model =  self.Model(self, **self.Model(self, *args,
-                                               **kwargs).to_python())
+        model = self.Model(self,
+                            **self.Model(self, *args, **kwargs).to_python())
         model.validate()
         return model
 

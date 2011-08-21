@@ -27,6 +27,7 @@ from django.core import management
 
 
 class BaseApp(object):
+    needs_syncdb = True
     interactive = True
     instance_dir = None
 
@@ -59,7 +60,8 @@ class BaseApp(object):
             sys.exit(0)
         try:
             self.configure()
-            self.syncdb()
+            if self.needs_syncdb:
+                self.syncdb()
             if DEBUG:
                 from celery.apps.worker import install_cry_handler
                 install_cry_handler(logging.getLogger())

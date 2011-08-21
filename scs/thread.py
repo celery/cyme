@@ -29,7 +29,7 @@ class gThread(LogMixin):
         self.before()
         try:
             g = self.spawn(self._crashsafe, self.run)
-            self.debug("%s spawned" % (self.name, ))
+            self.debug("%s spawned", self.name)
             return g
         finally:
             self.after()
@@ -38,7 +38,7 @@ class gThread(LogMixin):
         try:
             return fun(*args, **kwargs)
         except Exception, exc:
-            self.error("Thread crash detected: %r" % (exc, ))
+            self.error("Thread crash detected: %r", exc)
             os._exit(0)
 
     def spawn(self, fun, *args, **kwargs):

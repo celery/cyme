@@ -2,7 +2,6 @@
 
 from __future__ import absolute_import
 
-from dictshield.document import EmbeddedDocument
 from dictshield import fields
 
 from . import base
@@ -109,7 +108,6 @@ class Client(base.Client):
         def create_model(self, data, *args, **kwargs):
             data["queue_names"] = data.pop("queues", None)
             return base.Section.create_model(self, data, *args, **kwargs)
-
 
     class Queues(base.Section):
 

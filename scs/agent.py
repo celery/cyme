@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import logging
 
 from celery import current_app as celery
-from celery.utils import instantiate, LOG_LEVELS
+from celery.utils import instantiate
 from kombu.utils import gen_unique_id
 
 from . import signals
@@ -78,7 +78,7 @@ class Agent(gThread):
         state.is_agent = True
         self.prepare_signals()
         celery.log.setup_logging_subsystem(self.loglevel, self.logfile)
-        self.info("Starting with id %r" % (self.id, ))
+        self.info("Starting with id %r", self.id)
         [g.start() for g in self.components][-1].wait()
 
 
@@ -94,17 +94,11 @@ class Cluster(object):
         return self.Nodes.get(name=nodename)
 
     def add(self, nodename=None, queues=None,
-            max_concurrency=1, min_concurrency=1, hostname=None,
-            port=None, userid=None, password=None, virtual_host=None,
-            app=None, nowait=False, **kwargs):
-        broker = None
-        if hostname:
-            broker = self.Brokers.get_or_create(
-                            hostname=hostname, port=port,
-                            userid=userid, password=password,
-                            virtual_host=virtual_host)
+            max_concurrency=1, min_concurrency=1, broker=None,
+            pool=None, app=None, nowait=False, **kwargs):
+        broker = self.Brokers.get_or_create(url=broker)[0] if broker else None
         node = self.Nodes.add(nodename, queues, max_concurrency,
-                              min_concurrency, broker, app)
+                              min_concurrency, broker, pool, app)
         maybe_wait(self.sup.verify([node]), nowait)
         return node
 

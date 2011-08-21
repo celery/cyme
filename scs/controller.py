@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from functools import partial
 
 from cl import Actor
+from cl.common import uuid
 from cl.presence import AwareAgent, AwareActorMixin, announce_after
 from cl.utils import flatten, first_or_raise, shortuuid
 from celery import current_app as celery
@@ -12,17 +13,19 @@ from kombu import Exchange
 
 from . import conf
 from . import metrics
-from .models import App, Node, Queue
+from . import models
 from .signals import controller_ready
 from .state import state
 from .thread import gThread
-from .utils import cached_property
+from .utils import cached_property, promise
 
 ControllerBase = AwareAgent
 
 
-class SCSActor(Actor, AwareActorMixin):
+class ModelActor(Actor, AwareActorMixin):
+    model = None
     meta_lookup_section = None
+    _announced = set()
 
     def __init__(self, connection=None, *args, **kwargs):
         if not connection:
@@ -33,9 +36,28 @@ class SCSActor(Actor, AwareActorMixin):
         self.retry = state.is_agent
         self.default_fields = {"actor_id": self.id}
 
+    def on_agent_ready(self):
+        if self.name not in self._announced:
+            self.log.info("%s: %s", self.name_plural,
+                    promise(lambda: ", ".join(self.state.all())))
+            self._announced.add(self.name)
 
-class AppActor(SCSActor):
-    name = "App"
+    def contribute_to_state(self, state):
+        state.model = self.model
+        state.objects = self.model._default_manager
+        return Actor.contribute_to_state(self, state)
+
+    @cached_property
+    def name(self):
+        return unicode(self.model._meta.verbose_name.capitalize())
+
+    @cached_property
+    def name_plural(self):
+        return unicode(self.model._meta.verbose_name_plural).capitalize()
+
+
+class App(ModelActor):
+    model = models.App
     types = ("scatter", )
     exchange = Exchange("xscs.App")
     _cache = {}
@@ -43,18 +65,18 @@ class AppActor(SCSActor):
     class state:
 
         def all(self):
-            return [app.name for app in App.objects.all()]
+            return [app.name for app in self.objects.all()]
 
-        def add(self, name, **broker):
-            return App.objects.add(name, **broker).as_dict()
+        def add(self, name, broker=None):
+            return self.objects.add(name, broker=broker).as_dict()
 
         def delete(self, name):
-            return App.objects.filter(name=name).delete() and "ok"
+            return self.objects.filter(name=name).delete() and "ok"
 
         def get(self, name):
             try:
-                return App.objects.get(name=name).as_dict()
-            except App.DoesNotExist:
+                return self.objects.get(name=name).as_dict()
+            except self.model.DoesNotExist:
                 raise self.Next()
 
         def metrics(self):
@@ -76,15 +98,16 @@ class AppActor(SCSActor):
         return list(self.scatter("metrics"))
 
     def get(self, name=None):
+        objects = self.state.objects
         if not name:
-            return App.objects.get_default()
+            return objects.get_default()
         if name not in self._cache:
             app = self._get(name)
             if state.is_agent:
                 # copy app to local
-                self._cache[name] = App.objects.recreate(**app)
+                self._cache[name] = objects.recreate(**app)
             else:
-                self._cache[name] = App.objects.instance(**app)
+                self._cache[name] = objects.instance(**app)
         return self._cache[name]
 
     def _get(self, name):
@@ -92,11 +115,11 @@ class AppActor(SCSActor):
             return self.state.get(name)
         except self.Next:
             return first_or_raise(self.scatter("get", {"name": name}))
-apps = AppActor()
+apps = App()
 
 
-class NodeActor(SCSActor):
-    name = "Node"
+class Node(ModelActor):
+    model = models.Node
     exchange = Exchange("xscs.Node")
     default_timeout = 60
     types = ("direct", "scatter", "round-robin")
@@ -105,15 +128,15 @@ class NodeActor(SCSActor):
     class state:
 
         def all(self, app=None):
-            fun = Node.objects.all
+            fun = self.objects.all
             if app:
-                fun = partial(Node.objects.filter, app=apps.get(app))
+                fun = partial(self.objects.filter, app=apps.get(app))
             return [node.name for node in fun()]
 
         def get(self, name, app=None):
             try:
-                x = Node.objects.get(name=name)
-            except Node.DoesNotExist:
+                x = self.objects.get(name=name)
+            except self.model.DoesNotExist:
                 raise self.Next()
             return x.as_dict()
 
@@ -142,7 +165,7 @@ class NodeActor(SCSActor):
 
         def remove_queue_from_all(self, queue):
             return [node.name for node in
-                        Node.objects.remove_queue_from_nodes(queue)]
+                        self.objects.remove_queue_from_nodes(queue)]
 
         def autoscale(self, name, max=None, min=None):
             node = self.scs.get(name)
@@ -168,8 +191,13 @@ class NodeActor(SCSActor):
         return flatten(self.scatter("all", {"app": app}))
 
     def add(self, name=None, app=None, nowait=False, **kwargs):
-        return self.throw("add", dict({"name": name, "app": app}, **kwargs),
-                          nowait=nowait)
+        if nowait:
+            name = name if name else uuid()
+        ret = self.throw("add", dict({"name": name, "app": app}, **kwargs),
+                         nowait=nowait)
+        if nowait:
+            return {"name": name}
+        return ret
 
     def remove(self, name, **kw):
         return self.send_to_able("remove", {"name": name}, to=name, **kw)
@@ -209,11 +237,11 @@ class NodeActor(SCSActor):
     @property
     def meta(self):
         return {"nodes": self.state.all()}
-nodes = NodeActor()
+nodes = Node()
 
 
-class QueueActor(SCSActor):
-    name = "Queue"
+class Queue(ModelActor):
+    model = models.Queue
     exchange = Exchange("xscs.Queue")
     types = ("direct", "scatter", "round-robin")
     default_timeout = 2
@@ -222,21 +250,21 @@ class QueueActor(SCSActor):
     class state:
 
         def all(self):
-            return [q.name for q in Queue.objects.all()]
+            return [q.name for q in self.objects.all()]
 
         def get(self, name):
             try:
-                return Queue.objects.get(name=name).as_dict()
-            except Queue.DoesNotExist:
+                return self.objects.get(name=name).as_dict()
+            except self.model.DoesNotExist:
                 raise KeyError(name)
 
         @announce_after
         def add(self, name, **declaration):
-            return Queue.objects._add(name, **declaration).as_dict()
+            return self.objects._add(name, **declaration).as_dict()
 
         @announce_after
         def delete(self, name):
-            Queue.objects.filter(name=name).delete()
+            self.objects.filter(name=name).delete()
             return "ok"
 
     def all(self):
@@ -260,11 +288,11 @@ class QueueActor(SCSActor):
     @property
     def meta(self):
         return {"queues": self.state.all()}
-queues = QueueActor()
+queues = Queue()
 
 
 class Controller(ControllerBase, gThread):
-    actors = [AppActor(), NodeActor(), QueueActor()]
+    actors = [App(), Node(), Queue()]
     connect_max_retries = celery.conf.BROKER_CONNECTION_MAX_RETRIES
     _ready_sent = False
 
@@ -285,6 +313,7 @@ class Controller(ControllerBase, gThread):
         if not self._ready_sent:
             controller_ready.send(sender=self)
             self._ready_sent = True
+        super(Controller, self).on_consume_ready()
 
     @property
     def logger_name(self):

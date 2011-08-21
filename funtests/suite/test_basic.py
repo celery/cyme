@@ -97,7 +97,7 @@ class test_basic(AgentTestCase, ClientTestCase):
         self.assertTrue(instance)
         instance = app.instances.get(instance.name)
         self.assertTrue(instance)
-        self.assertIn(instance.name, app.instances)
+        self.assertIn(instance, app.instances)
 
         q = uuid()
         expected = dict(exchange=q, exchange_type="topic", routing_key=q)
@@ -107,16 +107,16 @@ class test_basic(AgentTestCase, ClientTestCase):
         self.assertTrue(queue)
         for key, value in expected.items():
             self.assertEqual(getattr(queue, key), value)
-        self.assertIn(queue.name, app.queues)
+        self.assertIn(queue, app.queues)
 
         self.assertTrue(instance.consumers.add(queue))
         self.assertTrue(instance.consumers.delete(queue))
 
         queue.delete()
-        self.assertNotIn(queue.name, app.queues)
+        self.assertNotIn(queue, app.queues)
 
         instance.delete()
-        self.assertNotIn(instance.name, app.instances)
+        self.assertNotIn(instance, app.instances)
 
 
 if __name__ == "__main__":

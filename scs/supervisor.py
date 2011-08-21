@@ -172,8 +172,7 @@ class Supervisor(gThread):
                     try:
                         action(node, **kwargs)
                     except Exception, exc:
-                        self.error("Event caused exception: %r" % (exc, ),
-                                   exc_info=sys.exc_info())
+                        self.error("Event caused exception: %r", exc)
             finally:
                 event.send(True)
 
@@ -192,7 +191,7 @@ class Supervisor(gThread):
         blocking(node.restart)
         is_alive = False
         for i in fxrangemax(0.1, 1, 0.4, 30):
-            self.info("%s pingWithTimeout: %s" % (node, i))
+            self.info("%s pingWithTimeout: %s", node, i)
             if insured(node, node.responds_to_ping, timeout=i):
                 is_alive = True
                 break
@@ -217,9 +216,7 @@ class Supervisor(gThread):
                 if bucket.can_consume(1):
                     self._verify_restart_node(node)
                 else:
-                    self.error(
-                        "%s node.disabled: Restarted too many times" % (
-                            node, ))
+                    self.error("%s node.disabled: Restarted too often", node)
                     node.disable()
                     self._buckets.pop(node.restart)
         else:

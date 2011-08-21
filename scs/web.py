@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import httplib as http
 import sys
 
-from functools import partial
+from functools import partial, wraps
 from traceback import format_exception
 
 from django.http import HttpResponse, HttpResponseNotFound
@@ -70,12 +70,14 @@ class ApiView(View):
 
     def Ok(self, data, *args, **kwargs):
         if self.nowait:
-            return self.Accepted({"ok": "operation scheduled"}, **kwargs)
+            data = data or {"ok": "operation scheduled"}
+            return self.Accepted(data, **kwargs)
         return self.Response(data, *args, **kwargs)
 
     def Created(self, data, *args, **kwargs):
         if self.nowait:
-            return self.Accepted({"ok": "operation scheduled"}, **kwargs)
+            data = data or {"ok": "operation scheduled"}
+            return self.Accepted(data, **kwargs)
         return Created(data, *args, **kwargs)
 
     def NotImplemented(self, *args, **kwargs):
@@ -103,6 +105,17 @@ class ApiView(View):
         return key, None if value == semipredicate else value
 
 
+def sync(fun):
+
+    @wraps(fun)
+    def _inner(self, *args, **kwargs):
+        if kwargs.pop("nowait", None):
+            return self.NotImplemented("Operation can't be async.")
+        return fun(self, *args, **kwargs)
+
+    return _inner
+
+
 def simple_get(fun):
-    return type(fun.__name__, (ApiView, ), {
-        "__module__": fun.__module__, "__doc__": fun.__doc__, "get": fun})
+    return type(fun.__name__, (ApiView, ), {"get": sync(fun),
+                    "__module__": fun.__module__, "__doc__": fun.__doc__})

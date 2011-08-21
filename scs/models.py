@@ -30,37 +30,24 @@ class Broker(models.Model):
     """Broker connection arguments."""
     objects = BrokerManager()
 
-    hostname = models.CharField(_(u"hostname"), max_length=128)
-    port = models.IntegerField(_(u"port"))
-    userid = models.CharField(_(u"userid"), max_length=128)
-    password = models.CharField(_(u"password"), max_length=128)
-    virtual_host = models.CharField(_(u"virtual host"), max_length=128)
+    url = models.CharField(_(u"URL"), max_length=200, unique=True)
 
     _pool = None
 
     class Meta:
         verbose_name = _(u"broker")
         verbose_name_plural = _(u"brokers")
-        unique_together = ("hostname", "port", "virtual_host")
 
     def __unicode__(self):
         return unicode(self.connection().as_uri())
 
     def connection(self):
-        return celery.broker_connection(hostname=self.hostname,
-                                        userid=self.userid,
-                                        password=self.password,
-                                        virtual_host=self.virtual_host,
-                                        port=self.port)
+        return celery.broker_connection(self.url)
 
     def as_dict(self):
         """Returns a JSON serializable version of this brokers
         connection parameters."""
-        return {"hostname": self.hostname,
-                "port": self.port,
-                "userid": self.userid,
-                "password": self.password,
-                "virtual_host": self.virtual_host}
+        return {"url": self.url}
 
     @property
     def pool(self):
@@ -93,7 +80,7 @@ class App(models.Model):
 
     def as_dict(self):
         return {"name": self.name,
-                "broker": self.get_broker().as_dict()}
+                "broker": self.get_broker().url}
 
 
 class Queue(models.Model):
@@ -143,6 +130,8 @@ class Node(models.Model):
     _queues = models.TextField(_(u"queues"), null=True, blank=True)
     max_concurrency = models.IntegerField(_(u"max concurrency"), default=1)
     min_concurrency = models.IntegerField(_(u"min concurrency"), default=1)
+    pool = models.CharField(_(u"pool"), max_length=128, blank=True, null=True,
+                                        default=conf.SCS_DEFAULT_POOL)
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
     _broker = models.ForeignKey(Broker, null=True, blank=True)
@@ -169,7 +158,8 @@ class Node(models.Model):
                 "max_concurrency": self.max_concurrency,
                 "min_concurrency": self.min_concurrency,
                 "is_enabled": self.is_enabled,
-                "broker": self.broker.as_dict()}
+                "broker": self.broker.url,
+                "pool": self.pool}
 
     def enable(self):
         """Enables this instance.
@@ -338,25 +328,31 @@ class Node(models.Model):
         return os.path.join(self.cwd, "celeryd@%n.log")
 
     @property
+    def statedb(self):
+        return os.path.join(self.cwd, "celeryd@%s.statedb" % (self.name, ))
+
+    @property
     def default_args(self):
-        return ("--workdir=%s" % (self.cwd, ),
-                "--pidfile=%s" % (self.pidfile, ),
-                "--logfile=%s" % (self.logfile, ),
-                "--queues=%s" % (self.direct_queue, ),
-                "--loglevel=DEBUG",
+        return ("--broker='%s'" % (self.broker.url, ),
+                "--workdir='%s'" % (self.cwd, ),
+                "--pidfile='%s'" % (self.pidfile, ),
+                "--logfile='%s'" % (self.logfile, ),
+                "--queues='%s'" % (self.direct_queue, ),
+                "--statedb='%s'" % (self.statedb, ),
+                "--events",
+                "--pool='%s'" % (self.pool or conf.SCS_DEFAULT_POOL, ),
+                "--loglevel=INFO",
                 "--include=scs.tasks",
-                "--autoscale=%s,%s" % (self.max_concurrency,
+                "--autoscale='%s,%s'" % (self.max_concurrency,
                                        self.min_concurrency))
 
     @property
     def extra_config(self):
-        return ("--                             \
-                 broker.host=%(hostname)s       \
-                 broker.port=%(port)s           \
-                 broker.user=%(userid)s         \
-                 broker.password=%(password)s   \
-                 broker.vhost=%(virtual_host)s  \
-                " % self.broker.as_dict()).split()
+        return ("--                                   \
+                 celeryd.prefetch_multiplier=10       \
+                 celery.acks_late=yes                 \
+                 celery.amqp_task_result_expires=3600 \
+                 celery.send_task_sent_event=yes".split())
 
     @property
     def broker(self):

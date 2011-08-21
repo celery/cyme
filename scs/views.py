@@ -16,13 +16,12 @@ from .utils import uuid
 
 class App(web.ApiView):
 
+    @web.sync
     def get(self, request, app=None):
         return apps.get(app).as_dict() if app else apps.all()
 
     def put(self, request, app=None):
-        return self.Created(apps.add(app or uuid(),
-                            **self.params("hostname", ("port", int), "userid",
-                                          "password", "virtual_host")))
+        return self.Created(apps.add(app or uuid(), **self.params("broker")))
     post = put
 
     def delete(self, request, app):
@@ -31,24 +30,25 @@ class App(web.ApiView):
 
 class Instance(web.ApiView):
 
+    @web.sync
     def get(self, request, app, name=None, nowait=False):
-        if nowait:
-            return self.NotImplemented("Get operation can't be async.")
         return nodes.get(name) if name else nodes.all(app=app)
 
     def delete(self, request, app, name, nowait=False):
         return self.Ok(nodes.remove(name, nowait=nowait))
 
     def put(self, request, app, name=None, nowait=False):
-        return self.Created(nodes.add(name=name, app=app, nowait=nowait))
+        print("NOWAIT IS: %r" % (nowait, ))
+        return self.Created(nodes.add(name=name, app=app,
+                                      nowait=nowait,
+                                      **self.params("broker", "pool")))
     post = put
 
 
 class Consumer(web.ApiView):
 
+    @web.sync
     def get(self, request, app, name, queue=None, nowait=False):
-        if nowait:
-            return self.NotImplemented("Get operation can't be async.")
         return nodes.consuming_from(name)
 
     def put(self, request, app, name, queue, nowait=False):
@@ -61,9 +61,8 @@ class Consumer(web.ApiView):
 
 class Queue(web.ApiView):
 
-    def get(self, request, app, name=None, nowait=False):
-        if nowait:
-            return self.NotImplemented("Get operation can't be async.")
+    @web.sync
+    def get(self, request, app, name=None):
         return queues.get(name) if name else queues.all()
 
     def delete(self, request, app, name, nowait=False):
@@ -128,9 +127,8 @@ class apply(web.ApiView):
 
 class autoscale(web.ApiView):
 
-    def get(self, request, app, name, nowait=False):
-        if nowait:
-            return self.NotImplemented("Get operation can't be async.")
+    @web.sync
+    def get(self, request, app, name):
         node = nodes.get(name)
         return {"max": node["max_concurrency"], "min": node["min_concurrency"]}
 

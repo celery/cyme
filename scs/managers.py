@@ -3,29 +3,22 @@
 from __future__ import absolute_import
 
 from anyjson import serialize
-from celery import current_app as celery
 from djcelery.managers import ExtendedManager
 
 from .utils import cached_property, uuid
 
 
 class BrokerManager(ExtendedManager):
+    default_url = "amqp://guest:guest@localhost:5672//"
 
     def get_default(self):
-        conf = celery.conf
-        broker, _ = self.get_or_create(
-                        hostname=conf.BROKER_HOST or "127.0.0.1",
-                        userid=conf.BROKER_USER or "guest",
-                        password=conf.BROKER_PASSWORD or "guest",
-                        port=conf.BROKER_PORT or 5672,
-                        virtual_host=conf.BROKER_VHOST or "/")
-        return broker
+        return self.get_or_create(url=self.default_url)[0]
 
 
 class AppManager(ExtendedManager):
 
     def from_json(self, name=None, broker=None):
-        return {"name": name, "broker": self.get_broker(**broker)}
+        return {"name": name, "broker": self.get_broker(broker)}
 
     def recreate(self, name=None, broker=None):
         d = self.from_json(name, broker)
@@ -35,17 +28,11 @@ class AppManager(ExtendedManager):
     def instance(self, name=None, broker=None):
         return self.model(**self.from_json(name, broker))
 
-    def get_broker(self, **kwargs):
-        if kwargs["hostname"]:
-            return self.Brokers.get_or_create(**kwargs)[0]
+    def get_broker(self, url):
+        return self.Brokers.get_or_create(url=url)[0]
 
-    def add(self, name=None, hostname=None, port=None, userid=None,
-            password=None, virtual_host=None):
-        broker = None
-        if hostname:
-            broker = self.get_broker(hostname=hostname, port=port,
-                                     userid=userid, password=password,
-                                     virtual_host=virtual_host)
+    def add(self, name=None, broker=None):
+        broker = self.get_broker(broker) if broker else None
         return self.get_or_create(name=name, defaults={"broker": broker})[0]
 
     def get_default(self):
@@ -68,10 +55,11 @@ class NodeManager(ExtendedManager):
                     for queue in queues]
 
     def add(self, nodename=None, queues=None, max_concurrency=1,
-            min_concurrency=1, broker=None, app=None):
+            min_concurrency=1, broker=None, pool=None, app=None):
         node = self.create(name=nodename or uuid(),
                            max_concurrency=max_concurrency,
                            min_concurrency=min_concurrency,
+                           pool=pool,
                            app=app)
         needs_save = False
         if queues:
