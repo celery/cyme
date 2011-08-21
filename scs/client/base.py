@@ -8,6 +8,7 @@ import requests
 from urllib import quote
 
 from celery.datastructures import AttributeDict
+from dictshield.document import Document
 
 from .. import __version__, DEBUG
 from ..utils import cached_property
@@ -46,27 +47,19 @@ class Base(object):
         return iter(self.keys())
 
 
-class Model(object):
-    repr = "Model"
-    repr_field = "name"
-    fields = ()
+class Model(Document):
 
     def __init__(self, parent, *args, **kwargs):
         self.parent = parent
+        super(Model, self).__init__(**self._prepare_kwargs(*args, **kwargs))
+
+    def _prepare_kwargs(self, *args, **kwargs):
         if len(args) == 1 and isinstance(args[0], dict):
             kwargs.update(args[0])
+        return kwargs
 
-        for field in self.fields:
-            setattr(self, field, None)
-        for key, value in kwargs.iteritems():
-            setattr(self, key, value)
-
-    def delete(self):
-        return self.parent.delete(self.name)
-
-    def __repr__(self):
-        return "<%s: %r>" % (self.repr,
-                             getattr(self, self.repr_field, None) or "(none)")
+    def delete(self, nowait=False):
+        return self.parent.delete(self.name, nowait=nowait)
 
 
 class Section(Base):
@@ -83,23 +76,39 @@ class Section(Base):
             setattr(self, attr, getattr(self.client, attr))
         self.path = Path(self.name) if self.path is None else self.path
 
-    def all(self):
+    def all_names(self):
         return self.GET(self.path)
+
+    def all(self):
+        return (self.get(name) for name in self.all_names())
 
     def get(self, name):
         return self.GET(self.path / name, type=self.create_model)
 
-    def add(self, name, **data):
-        return self.PUT(self.path / name, type=self.create_model, data=data)
+    def add(self, name, nowait=False, **data):
+        if isinstance(name, self.Model):
+            name = name.name
+        return self.PUT(self.maybe_async(name, nowait),
+                        type=self.create_model, data=data)
 
-    def delete(self, name):
-        return self.DELETE(self.path / name)
+    def delete(self, name, nowait=False):
+        if isinstance(name, self.Model):
+            name = name.name
+        return self.DELETE(self.maybe_async(name, nowait))
+
+    def maybe_async(self, name, nowait):
+        if nowait:
+            return self.path / "!" / name
+        return self.path / name
 
     def create_model(self, *args, **kwargs):
-        return self.Model(self, *args, **kwargs)
+        model =  self.Model(self, **self.Model(self, *args,
+                                               **kwargs).to_python())
+        model.validate()
+        return model
 
     def __repr__(self):
-        return repr(self.all())
+        return repr(list(self.all()))
 
 
 class Client(Base):

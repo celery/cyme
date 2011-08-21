@@ -2,7 +2,11 @@
 
 from __future__ import absolute_import
 
+from dictshield.document import EmbeddedDocument
+from dictshield import fields
+
 from . import base
+from ..utils import cached_property
 
 
 # XXX `requests` does not currently seem to support using the
@@ -10,11 +14,26 @@ from . import base
 
 
 class Instance(base.Model):
-    pass
+    name = fields.StringField(max_length=200)
+    broker = fields.StringField(max_length=200)
+    min_concurrency = fields.IntField()
+    max_concurrency = fields.IntField()
+    is_enabled = fields.BooleanField()
+    queue_names = fields.ListField(fields.StringField(max_length=200))
+
+    def __repr__(self):
+        return "<Instance: %r>" % (self.name, )
 
 
 class Queue(base.Model):
-    pass
+    name = fields.StringField(max_length=200, required=True)
+    exchange = fields.StringField(max_length=200, required=False)
+    exchange_type = fields.StringField(max_length=200, required=False)
+    routing_key = fields.StringField(max_length=200, required=False)
+    options = fields.StringField(max_length=None)
+
+    def __repr__(self):
+        return "<Queue: %r>" % (self.name, )
 
 
 class Client(base.Client):
@@ -23,28 +42,12 @@ class Client(base.Client):
     class Instances(base.Section):
 
         class Model(Instance):
-            repr = "Instance"
-            fields = ("name", "broker", "min_concurrency", "max_concurrency",
-                      "queues", "is_enabled")
 
             class Consumers(base.Section):
 
                 def __init__(self, client, name):
                     base.Section.__init__(self, client)
                     self.path = self.client.path / name / "queues"
-
-                def add(self, queue):
-                    if isinstance(queue, Queue):
-                        queue = queue.name
-                    return self.POST(self.path / queue)
-
-                def delete(self, queue):
-                    if isinstance(queue, Queue):
-                        queue = queue.name
-                    return self.DELETE(self.path / queue)
-
-                def all(self):
-                    return self.GET(self.path)
 
             def __init__(self, *args, **kwargs):
                 base.Model.__init__(self, *args, **kwargs)
@@ -57,9 +60,44 @@ class Client(base.Client):
             def autoscale(self, max=None, min=None):
                 return self.parent.autoscale(self.name, max=max, min=min)
 
-        def add(self, name=None):
+            class LazyQueues(object):
+
+                def __init__(self, instance):
+                    self.instance = instance
+
+                def __iter__(self):
+                    return self.instance._get_queues()
+
+                def __getitem__(self, index):
+                    return self._eval[index]
+
+                def __contains__(self, queue):
+                    if isinstance(queue, Queue):
+                        queue = queue.name
+                    return queue in self.instance.queue_names
+
+                def __len__(self):
+                    return len(self._eval)
+
+                def __repr__(self):
+                    return repr(self._eval)
+
+                @cached_property
+                def _eval(self):
+                    return list(iter(self))
+
+            def _get_queues(self):
+                return (self.parent.client.queues.get(name)
+                            for name in self.queue_names)
+
+            @property
+            def queues(self):
+                return self.LazyQueues(self)
+
+        def add(self, name=None, broker=None, nowait=False):
             # name is optional for instances
-            return base.Section.add(self, name)
+            return base.Section.add(self, name, nowait,
+                                    data={"broker": broker})
 
         def stats(self, name):
             return self.GET(self.path / name / "stats")
@@ -68,24 +106,24 @@ class Client(base.Client):
             return self.POST(self.path / name / "autoscale",
                              params={"max": max, "min": min})
 
+        def create_model(self, data, *args, **kwargs):
+            data["queue_names"] = data.pop("queues", None)
+            return base.Section.create_model(self, data, *args, **kwargs)
+
+
     class Queues(base.Section):
 
         class Model(Queue):
-            repr = "Queue"
-            fields = ("name", "exchange", "exchange_type",
-                      "routing_key", "options")
-
-        def delete(self, name):
-            return self.DELETE(self.path / name)
+            pass
 
         def add(self, name, exchange=None, exchange_type=None,
-                routing_key=None, **options):
+                routing_key=None, nowait=False, **options):
             options = self.serialize(options) if options else None
-            return self.POST(self.path / name,
-                            data={"exchange": exchange,
-                                "exchange_type": exchange_type,
-                                "routing_key": routing_key,
-                                "options": options}, type=self.create_model)
+            return base.Section.add(self, name, nowait,
+                                    data={"exchange": exchange,
+                                          "exchange_type": exchange_type,
+                                          "routing_key": routing_key,
+                                          "options": options})
 
     def __init__(self, url=None, app=None, info=None):
         super(Client, self).__init__(url)
@@ -94,14 +132,9 @@ class Client(base.Client):
         self.queues = self.Queues(self)
         self.info = info or {}
 
-    def add(self, name, hostname=None, port=None, userid=None,
-            password=None, virtual_host=None):
+    def add(self, name, broker=None):
         return self.create_model(name, self.root("POST", name,
-                                 data={"hostname": hostname,
-                                       "port": port,
-                                        "userid": userid,
-                                        "password": password,
-                                        "virtual_host": virtual_host}))
+                                 data={"broker": broker}))
 
     def get(self, name=None):
         return self.create_model(name, self.root("GET", name or self.app))
