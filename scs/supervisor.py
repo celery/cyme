@@ -6,11 +6,13 @@ import sys
 
 from collections import defaultdict
 from threading import Lock
+from Queue import Empty
 
 from celery.datastructures import TokenBucket
 from celery.local import LocalProxy
 from celery.log import SilenceRepeated
 from celery.utils.timeutils import rate
+from cl.common import insured as _insured
 from eventlet.queue import LightQueue
 from eventlet.event import Event
 from kombu.syn import blocking
@@ -21,32 +23,21 @@ from .signals import supervisor_ready
 from .state import state
 from .thread import gThread
 
+__current = None
+
 
 def insured(node, fun, *args, **kwargs):
     """Ensures any function performing a broadcast command completes
     despite intermittent connection failures."""
 
     def errback(exc, interval):
-        sys.stderr.write(
+        supervisor.error(
             "Error while trying to broadcast %r: %r\n" % (fun, exc))
         supervisor.pause()
 
-    with node.broker.pool.acquire(block=True) as conn:
-        conn.ensure_connection(errback=errback)
-        # we cache the channel for subsequent calls, this has to be
-        # reset on revival.
-        channel = getattr(conn, "_producer_chan", None)
-
-        def on_revive(channel):
-            if getattr(conn, "_producer_chan", None):
-                conn._producer_chan.close()
-            conn._producer_chan = channel
-            state.on_broker_revive(channel)
-
-        insured = conn.autoretry(fun, channel, errback=errback,
-                                               on_revive=on_revive)
-        retval, _ = insured(*args, **dict(kwargs, connection=conn))
-        return retval
+    return _insured(node.broker.pool, fun, args, kwargs,
+                    on_revive=state.on_broker_revive,
+                    errback=errback)
 
 
 def ib(fun, *args, **kwargs):
@@ -58,6 +49,11 @@ class Supervisor(gThread):
     """The supervisor wakes up at intervals to monitor changes in the model.
     It can also be requested to perform specific operations, and these
     operations can be either async or sync.
+
+    :keyword interval:  This is the interval (in seconds as an int/float),
+       between verifying all the registered nodes.
+    :keyword queue: Custom :class:`~Queue.Queue` instance used to send
+        and receive commands.
 
     It is responsible for:
 
@@ -90,21 +86,29 @@ class Supervisor(gThread):
     #: Connection errors pauses the supervisor, so events does not accumulate.
     paused = False
 
-    #: Time in seconds as a float to reschedule.
+    #: Default interval (time in seconds as a float to reschedule).
     interval = 60.0
 
-    def __init__(self, interval=None, queue=None):
+    def __init__(self, interval=None, queue=None, set_as_current=True):
+        self.set_as_current = set_as_current
+        if self.set_as_current:
+            set_current(self)
+        self._orig_queue_arg = queue
         self.interval = interval or self.interval
         self.queue = LightQueue() if queue is None else queue
         self._buckets = defaultdict(lambda: TokenBucket(
-                                    rate(self.restart_max_rate)))
+                                        rate(self.restart_max_rate)))
         self._pause_mutex = Lock()
         self._last_update = None
         super(Supervisor, self).__init__()
         self._rinfo = SilenceRepeated(self.info, max_iterations=30)
 
+    def __copy__(self):
+        return self.__class__(self.interval, self._orig_queue_arg)
+
     def pause(self):
         """Pause all timers."""
+        self.respond_to_ping()
         with self._pause_mutex:
             if not self.paused:
                 self.debug("pausing")
@@ -140,8 +144,8 @@ class Supervisor(gThread):
         """
         return self._request(nodes, self._do_restart_node)
 
-    def stop(self, nodes):
-        """Stop one or more nodes.
+    def shutdown(self, nodes):
+        """Shutdown one or more nodes.
 
         :param nodes: List of nodes to stop.
 
@@ -164,8 +168,13 @@ class Supervisor(gThread):
         queue = self.queue
         self.info("started")
         supervisor_ready.send(sender=self)
-        while 1:
-            nodes, event, action, kwargs = queue.get()
+        while not self.should_stop:
+            try:
+                nodes, event, action, kwargs = queue.get(timeout=1)
+            except Empty:
+                self.respond_to_ping()
+                continue
+            self.respond_to_ping()
             self._rinfo("wake-up")
             try:
                 for node in nodes:
@@ -176,8 +185,14 @@ class Supervisor(gThread):
             finally:
                 event.send(True)
 
-    def _verify_all(self):
-        if not self._last_update or self._last_update.ready():
+    def _verify_all(self, force=False):
+        if self._last_update and self._last_update.ready():
+            try:
+                self._last_update.wait()  # collect result
+            except self.GreenletExit:
+                pass
+            force = True
+        if not self._last_update or force:
             self._last_update = self.verify(Node.objects.all(), ratelimit=True)
 
     def _request(self, nodes, action, kwargs={}):
@@ -192,6 +207,7 @@ class Supervisor(gThread):
         is_alive = False
         for i in fxrangemax(0.1, 1, 0.4, 30):
             self.info("%s pingWithTimeout: %s", node, i)
+            self.respond_to_ping()
             if insured(node, node.responds_to_ping, timeout=i):
                 is_alive = True
                 break
@@ -269,8 +285,6 @@ class Supervisor(gThread):
             self.warn("%s: node.set_autoscale max=%r min=%r" % (
                 node, max, min))
             ib(node.autoscale, max, min)
-
-__current = None
 
 
 def set_current(sup):

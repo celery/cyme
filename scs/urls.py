@@ -19,6 +19,7 @@ def _o_(u):
              .replace("!", uNowait))
 
 urlpatterns = patterns('',
+    (r'^ping/$', views.ping.as_view()),
     (r'^admin/doc/', include('django.contrib.admindocs.urls')),
 
     (r'^admin/', include(admin.site.urls)),

@@ -1,4 +1,8 @@
-"""scs.web"""
+"""scs.web
+
+- Contains utilities for creating a Web API.
+
+"""
 
 from __future__ import absolute_import
 
@@ -44,15 +48,19 @@ Error = partial(JsonResponse, status=http.INTERNAL_SERVER_ERROR)
 
 
 class ApiView(View):
-    nowait = False
-    _semipredicate = object()
+    nowait = False  # should the current operation be async?
     typemap = {int: lambda i: int(i) if i else None,
                float: lambda f: float(f) if f else None}
+    _semipredicate = object()
 
-    def dispatch(self, *args, **kwargs):
+    def dispatch(self, request, *args, **kwargs):
         self.nowait = kwargs.get("nowait", False)
+        if request.method.lower() == "get":
+            kwargs.pop("nowait", None)
+            if self.nowait:
+                return self.NotImplemented("Operation can't be async.")
         try:
-            data = super(ApiView, self).dispatch(*args, **kwargs)
+            data = super(ApiView, self).dispatch(request, *args, **kwargs)
         except NoRouteError:
             return HttpResponseNotFound()
         except NoReplyError:
@@ -105,17 +113,6 @@ class ApiView(View):
         return key, None if value == semipredicate else value
 
 
-def sync(fun):
-
-    @wraps(fun)
-    def _inner(self, *args, **kwargs):
-        if kwargs.pop("nowait", None):
-            return self.NotImplemented("Operation can't be async.")
-        return fun(self, *args, **kwargs)
-
-    return _inner
-
-
 def simple_get(fun):
-    return type(fun.__name__, (ApiView, ), {"get": sync(fun),
+    return type(fun.__name__, (ApiView, ), {"get": fun,
                     "__module__": fun.__module__, "__doc__": fun.__doc__})

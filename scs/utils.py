@@ -7,6 +7,13 @@ from importlib import import_module
 from cl.utils.functional import promise, maybe_promise # noqa
 from kombu.utils import gen_unique_id as uuid          # noqa
 from kombu.utils import cached_property                # noqa
+from unipath import Path as _Path
+
+
+class Path(_Path):
+
+    def __div__(self, other):
+        return Path(self, other)
 
 
 def shellquote(v):
@@ -22,3 +29,11 @@ def imerge_settings(a, b):
     for key, value in vars(b).iteritems():
         if not hasattr(orig, key):
             setattr(a, key, value)
+
+
+def setup_logging(loglevel="INFO", logfile=None):
+    from celery import current_app as celery
+    from celery.utils import LOG_LEVELS
+    if isinstance(loglevel, basestring):
+        loglevel = LOG_LEVELS[loglevel]
+    return celery.log.setup_logging_subsystem(loglevel, logfile)

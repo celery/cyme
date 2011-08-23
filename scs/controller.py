@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 from functools import partial
 
-from cl import Actor
+from cl import Actor, Agent
 from cl.common import uuid
 from cl.presence import AwareAgent, AwareActorMixin, announce_after
 from cl.utils import flatten, first_or_raise, shortuuid
@@ -24,8 +24,7 @@ ControllerBase = AwareAgent
 
 class ModelActor(Actor, AwareActorMixin):
     model = None
-    meta_lookup_section = None
-    _announced = set()
+    _announced = set()  # note: global
 
     def __init__(self, connection=None, *args, **kwargs):
         if not connection:
@@ -57,6 +56,7 @@ class ModelActor(Actor, AwareActorMixin):
 
 
 class App(ModelActor):
+    """Actor for managing the app model."""
     model = models.App
     types = ("scatter", )
     exchange = Exchange("xscs.App")
@@ -81,7 +81,7 @@ class App(ModelActor):
 
         def metrics(self):
             return {"load_average": metrics.load_average(),
-                    "disk_use": metrics.df(conf.SCS_INSTANCE_DIR).capacity}
+                    "disk_use": metrics.df(str(conf.SCS_INSTANCE_DIR)).capacity}
 
     def all(self):
         return flatten(self.scatter("all"))
@@ -119,6 +119,7 @@ apps = App()
 
 
 class Node(ModelActor):
+    """Actor for managing the Node model."""
     model = models.Node
     exchange = Exchange("xscs.Node")
     default_timeout = 60
@@ -241,6 +242,7 @@ nodes = Node()
 
 
 class Queue(ModelActor):
+    """Actor for managing the Queue model."""
     model = models.Queue
     exchange = Exchange("xscs.Queue")
     types = ("direct", "scatter", "round-robin")
@@ -302,7 +304,7 @@ class Controller(ControllerBase, gThread):
 
     def on_awake(self):
         # bind global actors to this agent,
-        # so prescense can be used.
+        # so presence can be used.
         for actor in (apps, nodes, queues):
             actor.agent = self
 
@@ -315,6 +317,18 @@ class Controller(ControllerBase, gThread):
             self._ready_sent = True
         super(Controller, self).on_consume_ready()
 
+    def on_iteration(self):
+        self.respond_to_ping()
+
+    def on_connection_error(self, exc, interval):
+        self.respond_to_ping()
+        super(Controller, self).on_connection_error(exc, interval)
+
     @property
     def logger_name(self):
-        return '#'.join([self.__class__.__name__, shortuuid(self.id)])
+        return '#'.join([self.__class__.__name__, self._shortid()])
+
+    def _shortid(self):
+        if '.' in self.id:
+            return shortuuid(self.id) + ".." + self.id[-2:]
+        return shortuuid(self.id)

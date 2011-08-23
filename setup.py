@@ -126,6 +126,7 @@ setup(
         "Django",
         "django-celery>=2.3.1",
         "requests",
+        "dictshield",
     ],
     cmdclass={"test": RunTests,
               "citest": CIRunTests},

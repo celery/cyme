@@ -16,7 +16,6 @@ from .utils import uuid
 
 class App(web.ApiView):
 
-    @web.sync
     def get(self, request, app=None):
         return apps.get(app).as_dict() if app else apps.all()
 
@@ -30,7 +29,6 @@ class App(web.ApiView):
 
 class Instance(web.ApiView):
 
-    @web.sync
     def get(self, request, app, name=None, nowait=False):
         return nodes.get(name) if name else nodes.all(app=app)
 
@@ -38,7 +36,6 @@ class Instance(web.ApiView):
         return self.Ok(nodes.remove(name, nowait=nowait))
 
     def put(self, request, app, name=None, nowait=False):
-        print("NOWAIT IS: %r" % (nowait, ))
         return self.Created(nodes.add(name=name, app=app,
                                       nowait=nowait,
                                       **self.params("broker", "pool")))
@@ -47,7 +44,6 @@ class Instance(web.ApiView):
 
 class Consumer(web.ApiView):
 
-    @web.sync
     def get(self, request, app, name, queue=None, nowait=False):
         return nodes.consuming_from(name)
 
@@ -61,7 +57,6 @@ class Consumer(web.ApiView):
 
 class Queue(web.ApiView):
 
-    @web.sync
     def get(self, request, app, name=None):
         return queues.get(name) if name else queues.all()
 
@@ -127,14 +122,14 @@ class apply(web.ApiView):
 
 class autoscale(web.ApiView):
 
-    @web.sync
     def get(self, request, app, name):
         node = nodes.get(name)
         return {"max": node["max_concurrency"], "min": node["min_concurrency"]}
 
     def post(self, request, app, name, nowait=False):
         return self.Ok(nodes.autoscale(name, nowait=nowait,
-                                       **self.params("max", "min")))
+                                       **self.params(("max", int),
+                                                     ("min", int))))
 
 
 @web.simple_get
@@ -155,3 +150,8 @@ def task_result(self, request, app, uuid):
 @web.simple_get
 def task_wait(self, request, app, uuid):
     return {"result": AsyncResult(uuid).get()}
+
+
+@web.simple_get
+def ping(self, request):
+    return {"ok": "pong"}

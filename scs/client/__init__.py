@@ -15,6 +15,7 @@ from ..utils import cached_property
 class Instance(base.Model):
     name = fields.StringField(max_length=200)
     broker = fields.StringField(max_length=200)
+    pool = fields.StringField(max_length=200)
     min_concurrency = fields.IntField()
     max_concurrency = fields.IntField()
     is_enabled = fields.BooleanField()
@@ -47,6 +48,9 @@ class Client(base.Client):
                 def __init__(self, client, name):
                     base.Section.__init__(self, client)
                     self.path = self.client.path / name / "queues"
+
+                def create_model(self, data, *args, **kwargs):
+                    return data
 
             def __init__(self, *args, **kwargs):
                 base.Model.__init__(self, *args, **kwargs)

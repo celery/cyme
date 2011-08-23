@@ -4,3 +4,4 @@ dnspython
 django
 django-celery
 requests
+dictshield

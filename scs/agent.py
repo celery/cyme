@@ -6,13 +6,16 @@ import logging
 
 from celery import current_app as celery
 from celery.utils import instantiate
+from cl.g import blocking, Event
 from kombu.utils import gen_unique_id
 
 from . import signals
 from . import supervisor
 from .models import Broker, Node
+from .intsup import gSup
 from .state import state
 from .thread import gThread
+from .utils import setup_logging
 
 
 class Agent(gThread):
@@ -39,17 +42,21 @@ class Agent(gThread):
         self.loglevel = loglevel
         self.numc = numc
         self.ready_event = ready_event
+        self.exit_request = Event()
         if not self.without_httpd:
-            self.httpd = instantiate(self.httpd_cls, addrport)
-        self.supervisor = supervisor.set_current(instantiate(
-                            self.supervisor_cls, sup_interval))
-        self.controllers = [instantiate(self.controller_cls,
+            self.httpd = gSup(instantiate(self.httpd_cls, addrport),
+                              signals.httpd_ready)
+        self.supervisor = gSup(instantiate(self.supervisor_cls, sup_interval),
+                               signals.supervisor_ready)
+        self.controllers = [gSup(instantiate(self.controller_cls,
                                    id="%s.%s" % (self.id, i),
-                                   connection=self.connection)
+                                   connection=self.connection),
+                                 signals.controller_ready)
                                 for i in xrange(1, numc + 1)]
-        c = [self.httpd, self.supervisor] + self.controllers
+        c = [self.supervisor] + self.controllers + [self.httpd]
         c = self.components = list(filter(None, c))
-        self._components_ready = dict(zip(c, [False] * len(c)))
+        self._components_ready = dict(zip([z.thread for z in c],
+                                          [False] * len(c)))
         super(Agent, self).__init__()
 
     def on_controller_ready(self, sender=None, **kwargs):
@@ -77,9 +84,24 @@ class Agent(gThread):
     def run(self):
         state.is_agent = True
         self.prepare_signals()
-        celery.log.setup_logging_subsystem(self.loglevel, self.logfile)
+        setup_logging(self.loglevel, self.logfile)
         self.info("Starting with id %r", self.id)
-        [g.start() for g in self.components][-1].wait()
+        [g.start() for g in self.components]
+        self.exit_request.wait()
+
+    def stop(self):
+        self.exit_request.send(1)
+        super(Agent, self).stop()
+
+    def after(self):
+        for component in reversed(self.components):
+            if self._components_ready[component.thread]:
+                try:
+                    component.stop()
+                except KeyboardInterrupt:
+                    pass
+                except BaseException, exc:
+                    component.error("Error in shutdown: %r", exc)
 
 
 def maybe_wait(g, nowait):
@@ -104,7 +126,7 @@ class Cluster(object):
 
     def remove(self, nodename, nowait=False):
         node = self.Nodes.remove(nodename)
-        maybe_wait(self.sup.stop([node]), nowait)
+        maybe_wait(self.sup.shutdown([node]), nowait)
         return node
 
     def restart(self, nodename, nowait=False):

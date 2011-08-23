@@ -2,41 +2,41 @@
 
 from __future__ import absolute_import, with_statement
 
-from .. import DEBUG, DEBUG_BLOCK, DEBUG_READERS
-
-import eventlet
-import eventlet.debug
-eventlet.monkey_patch()
-if DEBUG_READERS:
-    eventlet.debug.hub_prevent_multiple_readers(False)
-    print("+++ MULTIPLE READERS ALLOWED +++")
-if DEBUG_BLOCK:
-    eventlet.debug.hub_blocking_detection(True)
-    print("+++ BLOCKING DETECTION ENABLED +++")
+from .. import __version__, DEBUG, DEBUG_BLOCK, DEBUG_READERS
 
 import getpass
 import logging
 import sys
 
-from .. import __version__
-from .. import settings as default_settings
-from ..utils import imerge_settings
-
-from django.conf import settings
-from django.core import management
+from kombu.utils import cached_property
 
 
-class BaseApp(object):
-    needs_syncdb = True
-    interactive = True
-    instance_dir = None
+class Env(object):
 
-    def __call__(self, argv=None):
-        return self.run_from_argv(argv)
+    def __init__(self, needs_syncdb=True, interactive=True,
+            instance_dir=None):
+        self.needs_syncdb = needs_syncdb
+        self.interactive = interactive
+        self.instance_dir = instance_dir
+
+    def setup_eventlet(self):
+        import eventlet
+        import eventlet.debug
+        eventlet.monkey_patch()
+        if DEBUG_READERS:
+            eventlet.debug.hub_prevent_multiple_readers(False)
+            print("+++ MULTIPLE READERS ALLOWED +++")
+        if DEBUG_BLOCK:
+            eventlet.debug.hub_blocking_detection(True)
+            print("+++ BLOCKING DETECTION ENABLED +++")
 
     def configure(self):
+        from django.conf import settings
+        from .. import settings as default_settings
+        from ..utils import imerge_settings
+
         if not settings.configured:
-            management.setup_environ(default_settings)
+            self.management.setup_environ(default_settings)
         else:
             imerge_settings(settings, default_settings)
         if self.instance_dir:
@@ -45,10 +45,39 @@ class BaseApp(object):
     def syncdb(self):
         gp, getpass.getpass = getpass.getpass, getpass.fallback_getpass
         try:
-            management.call_command("syncdb",
+            self.management.call_command("syncdb",
                                     interactive=self.interactive)
         finally:
             getpass.getpass = gp
+            self.needs_syncdb = False
+
+    @cached_property
+    def management(self):
+        from django.core import management
+        return management
+
+    def before(self):
+        self.setup_eventlet()
+        self.configure()
+
+    def setup(self):
+        if self.needs_syncdb:
+            self.syncdb()
+        if DEBUG:
+            from celery.apps.worker import install_cry_handler
+            install_cry_handler(logging.getLogger())
+        from cl import pools
+        from celery import current_app as celery
+        pools.set_limit(celery.conf.BROKER_POOL_LIMIT)
+        celery._pool = pools.connections[celery.broker_connection()]
+        return self
+
+
+class BaseApp(object):
+    env = None
+
+    def __call__(self, argv=None):
+        return self.run_from_argv(argv)
 
     def get_version(self):
         return "scs v%s" % (__version__, )
@@ -59,17 +88,9 @@ class BaseApp(object):
             print(self.get_version())
             sys.exit(0)
         try:
-            self.configure()
-            if self.needs_syncdb:
-                self.syncdb()
-            if DEBUG:
-                from celery.apps.worker import install_cry_handler
-                install_cry_handler(logging.getLogger())
-            from cl import pools
-            from celery import current_app as celery
-            pools.set_limit(celery.conf.BROKER_POOL_LIMIT)
-            celery._pool = pools.connections[celery.broker_connection()]
-            return self.run(argv)
+            env = self.env or Env()
+            env.before()
+            return self.run(env, argv)
         except KeyboardInterrupt:
             if DEBUG:
                 raise

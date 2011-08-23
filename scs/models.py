@@ -3,7 +3,6 @@
 from __future__ import absolute_import, with_statement
 
 import errno
-import logging
 import os
 import warnings
 
@@ -13,6 +12,7 @@ from anyjson import deserialize
 from celery import current_app as celery
 from celery import platforms
 from celery.bin.celeryd_multi import MultiTool
+from cl.log import anon_logger
 from cl.pools import connections, producers
 from eventlet import Timeout
 
@@ -23,7 +23,7 @@ from . import conf
 from .managers import AppManager, BrokerManager, NodeManager, QueueManager
 from .utils import cached_property
 
-logger = logging.getLogger("Node")
+logger = anon_logger("Node")
 
 
 class Broker(models.Model):
@@ -321,15 +321,15 @@ class Node(models.Model):
 
     @property
     def pidfile(self):
-        return os.path.join(self.cwd, "celeryd@%n.pid")
+        return self.cwd / "celeryd@%n.pid"
 
     @property
     def logfile(self):
-        return os.path.join(self.cwd, "celeryd@%n.log")
+        return self.cwd / "celeryd@%n.log"
 
     @property
     def statedb(self):
-        return os.path.join(self.cwd, "celeryd@%s.statedb" % (self.name, ))
+        return self.cwd / "celeryd@%s.statedb" % (self.name, )
 
     @property
     def default_args(self):

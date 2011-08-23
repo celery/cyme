@@ -29,7 +29,7 @@ Options
 
 .. cmdoption:: -D, --instance-dir
 
-    Custom instance directory (deafult is /var/run/scs)
+    Custom instance directory (deafult is :file:`SCS/``)
     Must be writeable by the user scs-agent runs as.
 
 .. cmdoption:: -C, --numc
@@ -66,6 +66,7 @@ from django.conf import settings
 from scs import __version__
 from scs.signals import agent_ready
 from scs.utils import cached_property
+from scs.apps.base import Env
 
 BANNER = """
  -------------- scs@%(id)s v%(version)s
@@ -77,7 +78,7 @@ BANNER = """
 - ** ----------   . sup:         interval=%(sup.interval)s
 - ** ----------   . presence:    interval=%(presence.interval)s
 - *** --- * ---   . controllers: #%(controllers)s
--- ******* ----
+-- ******* ----   . instancedir: %(instance_dir)s
 --- ***** -----
  -------------- http://celeryproject.org
 """
@@ -107,7 +108,7 @@ class Command(CeleryCommand):
               help="Choose between DEBUG/INFO/WARNING/ERROR/CRITICAL"),
        Option('-D', '--instance-dir',
               default=None, action="store", dest="instance_dir",
-              help="Custom instance dir. Default is /var/run/scs"),
+              help="Custom instance dir. Default is SCS/"),
        Option('-C', '--numc',
               default=2, action="store", type="int", dest="numc",
               help="Number of controllers to start.  Default is 2"),
@@ -120,11 +121,20 @@ class Command(CeleryCommand):
     # see http://code.djangoproject.com/changeset/13319.
     stdout, stderr = sys.stdout, sys.stderr
 
+    def __init__(self, env=None, *args, **kwargs):
+        if env is None:
+            from scs.apps.base import Env
+            env = Env()
+            env.setup_eventlet()
+        self.env = env
+
     def get_version(self):
         return "scs v%s" % (__version__, )
 
     def handle(self, *args, **kwargs):
         """Handle the management command."""
+        self.enter_instance_dir()
+        self.env.syncdb()
         from scs.agent import Agent
         kwargs = self.prepare_options(**kwargs)
         self.colored = colored(kwargs.get("logfile"))
@@ -135,11 +145,15 @@ class Command(CeleryCommand):
         self.set_process_title("boot")
         self.detach = kwargs.get("detach", False)
         if self.detach:
-            return self.detach(**kwargs)
+            return self.do_detach(**kwargs)
         return self._start(pidfile=kwargs.get("pidfile"))
 
     def stop(self):
         self.set_process_title("shutdown...")
+
+    def enter_instance_dir(self):
+        self.instance_dir.mkdir(parents=True)
+        self.instance_dir.chdir()
 
     def on_agent_ready(self, sender=None, **kwargs):
         pid = os.getpid()
@@ -149,7 +163,7 @@ class Command(CeleryCommand):
             print(str(self.colored.green("(%s) agent ready" % (pid, ))))
         sender.info(str(self.colored.green("[READY] (%s)" % (pid, ))))
 
-    def detach(self, logfile=None, pidfile=None, uid=None, gid=None,
+    def do_detach(self, logfile=None, pidfile=None, uid=None, gid=None,
             umask=None, working_directory=None, **kwargs):
         print("detaching... [pidfile=%s logfile=%s]" % (pidfile, logfile))
         with detached(logfile, pidfile, uid, gid, umask, working_directory):
@@ -157,10 +171,14 @@ class Command(CeleryCommand):
 
     def _start(self, pidfile=None):
         self.install_signal_handlers()
+        os.chdir(self.instance_dir)
         if pidfile:
             pidlock = create_pidlock(pidfile).acquire()
             atexit.register(pidlock.release)
-        return self.agent.start().wait()
+        try:
+            return self.agent.start().wait()
+        except SystemExit:
+            self.agent.stop()
 
     def prepare_options(self, broker=None, loglevel=None, logfile=None,
             pidfile=None, detach=None, instance_dir=None, **kwargs):
@@ -170,8 +188,7 @@ class Command(CeleryCommand):
         if broker:
             settings.BROKER_HOST = broker
         if instance_dir:
-            settings.SCS_INSTANCE_DIR = \
-                    os.path.abspath(instance_dir)
+            settings.SCS_INSTANCE_DIR = instance_dir
         if pidfile and not os.path.isabs(pidfile):
             pidfile = os.path.join(self.instance_dir, pidfile)
         if logfile and not os.path.isabs(logfile):
@@ -190,8 +207,11 @@ class Command(CeleryCommand):
         agent = self.agent
         addr, port = agent.addrport
         con = agent.controllers
-        pres = con[0].presence
-        sup = agent.supervisor
+        try:
+            pres_interval = con[0].thread.presence.interval
+        except AttributeError:
+            pres_interval = "(disabled)"
+        sup = agent.supervisor.thread
         return BANNER % {"id": agent.id,
                          "version": __version__,
                          "broker": agent.connection.as_uri(),
@@ -200,8 +220,9 @@ class Command(CeleryCommand):
                          "addr": addr or "localhost",
                          "port": port or 8000,
                          "sup.interval": sup.interval,
-                         "presence.interval": pres.interval,
-                         "controllers": len(con)}
+                         "presence.interval": pres_interval,
+                         "controllers": len(con),
+                         "instance_dir": self.instance_dir}
 
     def die(self, msg, exitcode=1):
         sys.stderr.write("Error: %s\n" % (msg, ))
@@ -210,7 +231,6 @@ class Command(CeleryCommand):
     def install_signal_handlers(self):
 
         def handle_exit(signum, frame):
-            self.agent.info("shutdown")
             raise SystemExit()
 
         for signal in ("TERM", "INT"):

@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), os.pardir))
 
-from scs.apps.base import app
+from scs.apps.base import app, Env
 from scs.utils import cached_property, uuid
 from eventlet.event import Event
 from nose import SkipTest
@@ -18,30 +18,35 @@ SCS_PORT = int(os.environ.get("SCS_PORT") or 8013)
 SCS_URL = "http://127.0.0.1:%s" % (SCS_PORT, )
 SCS_INSTANCE_DIR = os.path.abspath("instances")
 
+_agent = [None]
 
-@app(interactive=False, instance_dir=SCS_INSTANCE_DIR)
+
+@app()
 def start_agent(argv=None):
-    from scs.agent import Agent
-    ready_event = Event()
-    try:
-        os.mkdir("instances")
-    except OSError, exc:
-        if exc.errno != errno.EEXIST:
-            raise
-    instance = Agent("127.0.0.1:%s" % (SCS_PORT, ), numc=1,
-                     ready_event=ready_event)
-    g = instance.start()
-    ready_event.wait()
-    return instance, g
+    with Env(interactive=False, instance_dir=SCS_INSTANCE_DIR):
+        from scs.agent import Agent
+        ready_event = Event()
+        try:
+            os.mkdir("instances")
+        except OSError, exc:
+            if exc.errno != errno.EEXIST:
+                raise
+        instance = Agent("127.0.0.1:%s" % (SCS_PORT, ), numc=1,
+                        ready_event=ready_event)
+        instance.start()
+        ready_event.wait()
+        return instance
 
 
-def destroy_agent(g):
-    g.cancel()
+def destroy_agent(agent):
+    agent.stop()
 
 
 def teardown():
-    if os.path.exists(SCS_INSTANCE_DIR):
-        shutil.rmtree(SCS_INSTANCE_DIR)
+    if _agent[0] is not None:
+        destroy_agent(_agent[0])
+    if SCS_INSTANCE_DIR.isdir():
+        SCS_INSTANCE_DIR.rmtree()
 
 
 class ClientTestCase(unittest.TestCase):
@@ -52,16 +57,11 @@ class ClientTestCase(unittest.TestCase):
         return Client
 
 
-_agent = [None]
-_agent_g = [None]
 class AgentTestCase(unittest.TestCase):
 
     def setUp(self):
         if _agent[0] is None:
-            _agent[0], _agent_g[0] = start_agent()
-
-    def tearDown(self):
-        destroy_agent(_agent_g[0])
+            _agent[0] = start_agent()
 
 
 class test_create_app(AgentTestCase, ClientTestCase):
