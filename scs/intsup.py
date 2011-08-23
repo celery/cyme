@@ -1,5 +1,7 @@
+"""scs.intsup"""
 
-from copy import copy
+from __future__ import absolute_import, with_statement
+
 from os import _exit
 from time import sleep
 
@@ -8,11 +10,11 @@ from cl.g import Event
 from scs.thread import gThread
 
 SUP_ERROR_NOT_STARTED = """\
-sup found thread not starting\
+found thread not able to start?\
 """
 
 SUP_ERROR_PING_TIMEOUT = """\
-sup found suspected thread crash or blocking: %r\
+suspected thread crash or blocking: %r\
 """
 
 

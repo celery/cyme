@@ -99,8 +99,7 @@ class Client(base.Client):
 
         def add(self, name=None, broker=None, nowait=False):
             # name is optional for instances
-            return base.Section.add(self, name, nowait,
-                                    data={"broker": broker})
+            return base.Section.add(self, name, nowait, broker=broker)
 
         def stats(self, name):
             return self.GET(self.path / name / "stats")
@@ -122,10 +121,10 @@ class Client(base.Client):
                 routing_key=None, nowait=False, **options):
             options = self.serialize(options) if options else None
             return base.Section.add(self, name, nowait,
-                                    data={"exchange": exchange,
-                                          "exchange_type": exchange_type,
-                                          "routing_key": routing_key,
-                                          "options": options})
+                                    exchange=exchange,
+                                    exchange_type=exchange_type,
+                                    routing_key=routing_key,
+                                    options=options)
 
     def __init__(self, url=None, app=None, info=None):
         super(Client, self).__init__(url)

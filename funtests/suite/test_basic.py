@@ -22,20 +22,20 @@ _agent = [None]
 
 
 @app()
-def start_agent(argv=None):
-    with Env(interactive=False, instance_dir=SCS_INSTANCE_DIR):
-        from scs.agent import Agent
-        ready_event = Event()
-        try:
-            os.mkdir("instances")
-        except OSError, exc:
-            if exc.errno != errno.EEXIST:
-                raise
-        instance = Agent("127.0.0.1:%s" % (SCS_PORT, ), numc=1,
-                        ready_event=ready_event)
-        instance.start()
-        ready_event.wait()
-        return instance
+def start_agent(env, argv=None):
+    env.syncdb(interactive=False)
+    from scs.agent import Agent
+    ready_event = Event()
+    try:
+        os.mkdir("instances")
+    except OSError, exc:
+        if exc.errno != errno.EEXIST:
+            raise
+    instance = Agent("127.0.0.1:%s" % (SCS_PORT, ), numc=1,
+                    ready_event=ready_event)
+    instance.start()
+    ready_event.wait()
+    return instance
 
 
 def destroy_agent(agent):

@@ -4,17 +4,16 @@ from __future__ import absolute_import, with_statement
 
 import os
 
-from django.core import management
-
-from .base import app, Env
+from .base import app
 from ..utils import setup_logging
 
 
 @app()
 def scssh(env, argv):
+    env.syncdb()
     env.setup()
     if os.environ.get("SCS_LOG_DEBUG", False):
-        setup_logging(logging.DEBUG)
+        setup_logging("DEBUG")
     env.management.call_command("shell")
 
 

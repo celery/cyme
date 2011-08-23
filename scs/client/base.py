@@ -88,8 +88,8 @@ class Section(Base):
     def add(self, name, nowait=False, **data):
         if isinstance(name, self.Model):
             name = name.name
-        return self.PUT(self.maybe_async(name, nowait),
-                        type=self.create_model, data=data)
+        return self.POST(self.maybe_async(name, nowait),
+                         type=self.create_model, data=data)
 
     def delete(self, name, nowait=False):
         if isinstance(name, self.Model):
@@ -138,11 +138,11 @@ class Client(Base):
                             for key, value in d.iteritems())
 
     def _request(self, method, url, params=None, data=None, type=None):
+        data = self._prepare(data)
+        params = self._prepare(params)
         if DEBUG:
             print("<REQ> %s %r data=%r params=%r" % (method, url,
                                                      data, params))
-        data = self._prepare(data)
-        params = self._prepare(params)
         type = type or AttributeDict
         r = requests.request(method, str(url),
                              headers=self.headers,

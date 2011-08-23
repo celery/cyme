@@ -3,14 +3,12 @@
 from __future__ import absolute_import
 
 import os
-import socket
 
-from itertools import count
-from time import sleep
 from Queue import Empty
 
-from cl.g import blocking, Event, spawn, Timeout, timer, Queue
+from cl.g import blocking, Event, spawn, timer, Queue
 from cl.log import LogMixin
+from eventlet import Timeout
 
 
 class AlreadyStartedError(Exception):
@@ -133,15 +131,11 @@ class gThread(LogMixin):
             pass
 
     def _do_ping(self, timeout=None):
-        event = Event()
-        self._ping_queue.put_nowait(event)
-        for i in count(0):
-            if i >= timeout:
-                raise socket.timeout(timeout)
-            if event.ready():
-                event.wait()
-                return True
-            sleep(1)
+        with self.Timeout(timeout):
+            event = Event()
+            self._ping_queue.put_nowait(event)
+            event.wait()
+            return event.ready()
 
     def ping(self, timeout=None):
         if self.g and self._ping_queue is not None:
@@ -163,6 +157,9 @@ class gThread(LogMixin):
             self.debug("exiting")
         except Exception, exc:
             self.error("Thread crash detected: %r", exc)
+            os._exit(0)
+        except self.Timeout, exc:
+            self.error("Thread raised timeout: %r", exc)
             os._exit(0)
 
     def spawn(self, fun, *args, **kwargs):

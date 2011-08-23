@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 from functools import partial
 
-from cl import Actor, Agent
+from cl import Actor
 from cl.common import uuid
 from cl.presence import AwareAgent, AwareActorMixin, announce_after
 from cl.utils import flatten, first_or_raise, shortuuid
@@ -80,8 +80,9 @@ class App(ModelActor):
                 raise self.Next()
 
         def metrics(self):
+            instance_dir = str(conf.SCS_INSTANCE_DIR)
             return {"load_average": metrics.load_average(),
-                    "disk_use": metrics.df(str(conf.SCS_INSTANCE_DIR)).capacity}
+                    "disk_use": metrics.df(instance_dir).capacity}
 
     def all(self):
         return flatten(self.scatter("all"))
@@ -114,7 +115,10 @@ class App(ModelActor):
         try:
             return self.state.get(name)
         except self.Next:
-            return first_or_raise(self.scatter("get", {"name": name}))
+            replies = self.scatter("get", {"name": name}, propagate=False)
+            for reply in replies:
+                if not isinstance(reply, Exception):
+                    return reply
 apps = App()
 
 
@@ -281,6 +285,7 @@ class Queue(ModelActor):
             return self.send_to_able("get", {"name": name}, to=name)
 
     def add(self, name, nowait=False, **decl):
+        print("DECL: %r" %(decl, ))
         return self.throw("add", dict({"name": name}, **decl), nowait=nowait)
 
     def delete(self, name, **kw):
@@ -323,6 +328,13 @@ class Controller(ControllerBase, gThread):
     def on_connection_error(self, exc, interval):
         self.respond_to_ping()
         super(Controller, self).on_connection_error(exc, interval)
+
+    def stop(self):
+        self.should_stop = True
+        if hasattr(self, "presence") and self.presence.g:
+            self.debug("waiting for presence to exit")
+            self.presence.g.wait()
+        super(Controller, self).stop()
 
     @property
     def logger_name(self):

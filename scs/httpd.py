@@ -2,7 +2,6 @@
 
 from __future__ import absolute_import
 
-from anyjson import deserialize
 from eventlet import listen
 from eventlet import wsgi
 

@@ -57,7 +57,7 @@ from celery.bin.base import daemon_options
 from celery.platforms import (create_pidlock, detached,
                               signals, set_process_title)
 from celery.log import colored
-from celery.utils import LOG_LEVELS, get_cls_by_name
+from celery.utils import LOG_LEVELS, get_cls_by_name, instantiate
 from cl.utils import shortuuid
 from djcelery.management.base import CeleryCommand
 
@@ -65,8 +65,7 @@ from django.conf import settings
 
 from scs import __version__
 from scs.signals import agent_ready
-from scs.utils import cached_property
-from scs.apps.base import Env
+from scs.utils import cached_property, Path
 
 BANNER = """
  -------------- scs@%(id)s v%(version)s
@@ -87,6 +86,7 @@ DEFAULT_DETACH_PIDFILE = "agent.pid"
 
 
 class Command(CeleryCommand):
+    agent_cls = "scs.agent.Agent"
     name = "scs-agent"
     args = '[optional port number, or ipaddr:port]'
     option_list = CeleryCommand.option_list + (
@@ -123,9 +123,8 @@ class Command(CeleryCommand):
 
     def __init__(self, env=None, *args, **kwargs):
         if env is None:
-            from scs.apps.base import Env
-            env = Env()
-            env.setup_eventlet()
+            env = instantiate("scs.apps.base.Env")
+            env.before()
         self.env = env
 
     def get_version(self):
@@ -133,20 +132,24 @@ class Command(CeleryCommand):
 
     def handle(self, *args, **kwargs):
         """Handle the management command."""
-        self.enter_instance_dir()
-        self.env.syncdb()
-        from scs.agent import Agent
         kwargs = self.prepare_options(**kwargs)
+        self.enter_instance_dir()
+        self.syncdb()
         self.colored = colored(kwargs.get("logfile"))
-        agent = self.agent = Agent(*args, **kwargs)
-        addr, port = agent.addrport
+        self.agent = instantiate(self.agent_cls, *args, **kwargs)
         print(str(self.colored.cyan(self.banner())))
         agent_ready.connect(self.on_agent_ready)
-        self.set_process_title("boot")
-        self.detach = kwargs.get("detach", False)
-        if self.detach:
-            return self.do_detach(**kwargs)
-        return self._start(pidfile=kwargs.get("pidfile"))
+        self.detached = kwargs.get("detach", False)
+
+        return (self._detach if self.detached else self._start)(**kwargs)
+
+    def syncdb(self):
+        from django.db.utils import DEFAULT_DB_ALIAS
+        dbconf = settings.DATABASES[DEFAULT_DB_ALIAS]
+        if dbconf["ENGINE"] == "django.db.backends.sqlite3":
+            if Path(dbconf["NAME"]).absolute().exists():
+                return
+        self.env.syncdb()
 
     def stop(self):
         self.set_process_title("shutdown...")
@@ -158,20 +161,20 @@ class Command(CeleryCommand):
     def on_agent_ready(self, sender=None, **kwargs):
         pid = os.getpid()
         self.set_process_title("ready")
-        if not self.detach and \
+        if not self.detached and \
                 not self.agent.logger.isEnabledFor(logging.INFO):
             print(str(self.colored.green("(%s) agent ready" % (pid, ))))
         sender.info(str(self.colored.green("[READY] (%s)" % (pid, ))))
 
-    def do_detach(self, logfile=None, pidfile=None, uid=None, gid=None,
+    def _detach(self, logfile=None, pidfile=None, uid=None, gid=None,
             umask=None, working_directory=None, **kwargs):
         print("detaching... [pidfile=%s logfile=%s]" % (pidfile, logfile))
         with detached(logfile, pidfile, uid, gid, umask, working_directory):
             return self._start(pidfile=pidfile)
 
-    def _start(self, pidfile=None):
+    def _start(self, pidfile=None, **kwargs):
+        self.set_process_title("boot")
         self.install_signal_handlers()
-        os.chdir(self.instance_dir)
         if pidfile:
             pidlock = create_pidlock(pidfile).acquire()
             atexit.register(pidlock.release)
@@ -230,11 +233,12 @@ class Command(CeleryCommand):
 
     def install_signal_handlers(self):
 
-        def handle_exit(signum, frame):
+        def raise_SystemExit(signum, frame):
+            print("[User initiated shutdown]")
             raise SystemExit()
 
         for signal in ("TERM", "INT"):
-            signals[signal] = handle_exit
+            signals[signal] = raise_SystemExit
 
     def set_process_title(self, info):
         set_process_title("%s#%s" % (self.name, shortuuid(self.agent.id)),

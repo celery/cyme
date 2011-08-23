@@ -13,10 +13,8 @@ from kombu.utils import cached_property
 
 class Env(object):
 
-    def __init__(self, needs_syncdb=True, interactive=True,
-            instance_dir=None):
+    def __init__(self, needs_syncdb=True, instance_dir=None):
         self.needs_syncdb = needs_syncdb
-        self.interactive = interactive
         self.instance_dir = instance_dir
 
     def setup_eventlet(self):
@@ -42,11 +40,10 @@ class Env(object):
         if self.instance_dir:
             settings.SCS_INSTANCE_DIR = self.instance_dir
 
-    def syncdb(self):
+    def syncdb(self, interactive=True):
         gp, getpass.getpass = getpass.getpass, getpass.fallback_getpass
         try:
-            self.management.call_command("syncdb",
-                                    interactive=self.interactive)
+            self.management.call_command("syncdb", interactive=interactive)
         finally:
             getpass.getpass = gp
             self.needs_syncdb = False
@@ -61,8 +58,6 @@ class Env(object):
         self.configure()
 
     def setup(self):
-        if self.needs_syncdb:
-            self.syncdb()
         if DEBUG:
             from celery.apps.worker import install_cry_handler
             install_cry_handler(logging.getLogger())
@@ -90,6 +85,7 @@ class BaseApp(object):
         try:
             env = self.env or Env()
             env.before()
+            env.setup()
             return self.run(env, argv)
         except KeyboardInterrupt:
             if DEBUG:

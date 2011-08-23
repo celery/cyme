@@ -19,7 +19,6 @@ from eventlet import Timeout
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
-from . import conf
 from .managers import AppManager, BrokerManager, NodeManager, QueueManager
 from .utils import cached_property
 
@@ -123,15 +122,13 @@ class Node(models.Model):
 
     objects = NodeManager()
     mutex = Lock()
-    cwd = conf.SCS_INSTANCE_DIR
 
     app = models.ForeignKey(App)
     name = models.CharField(_(u"name"), max_length=128, unique=True)
     _queues = models.TextField(_(u"queues"), null=True, blank=True)
     max_concurrency = models.IntegerField(_(u"max concurrency"), default=1)
     min_concurrency = models.IntegerField(_(u"min concurrency"), default=1)
-    pool = models.CharField(_(u"pool"), max_length=128, blank=True, null=True,
-                                        default=conf.SCS_DEFAULT_POOL)
+    pool = models.CharField(_(u"pool"), max_length=128, blank=True, null=True)
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
     _broker = models.ForeignKey(Broker, null=True, blank=True)
@@ -340,7 +337,7 @@ class Node(models.Model):
                 "--queues='%s'" % (self.direct_queue, ),
                 "--statedb='%s'" % (self.statedb, ),
                 "--events",
-                "--pool='%s'" % (self.pool or conf.SCS_DEFAULT_POOL, ),
+                "--pool='%s'" % (self.pool or self.conf.SCS_DEFAULT_POOL, ),
                 "--loglevel=INFO",
                 "--include=scs.tasks",
                 "--autoscale='%s,%s'" % (self.max_concurrency,
@@ -397,3 +394,12 @@ class Node(models.Model):
         self._queues = queues
 
     queues = property(_get_queues, _set_queues)
+
+    @cached_property
+    def conf(self):
+        from . import conf
+        return conf
+
+    @cached_property
+    def cwd(self):
+        return self.conf.SCS_INSTANCE_DIR

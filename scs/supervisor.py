@@ -2,8 +2,6 @@
 
 from __future__ import absolute_import, with_statement
 
-import sys
-
 from collections import defaultdict
 from threading import Lock
 from Queue import Empty

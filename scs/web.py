@@ -9,7 +9,7 @@ from __future__ import absolute_import
 import httplib as http
 import sys
 
-from functools import partial, wraps
+from functools import partial
 from traceback import format_exception
 
 from django.http import HttpResponse, HttpResponseNotFound
@@ -100,6 +100,7 @@ class ApiView(View):
         return default
 
     def params(self, *keys):
+        print("GET: %r POST: %r" % (self.request.GET, self.request.POST))
         return dict(self.get_param(key) for key in keys)
 
     def get_param(self, key, type=None):

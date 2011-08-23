@@ -6,7 +6,7 @@ import logging
 
 from celery import current_app as celery
 from celery.utils import instantiate
-from cl.g import blocking, Event
+from cl.g import Event
 from kombu.utils import gen_unique_id
 
 from . import signals
