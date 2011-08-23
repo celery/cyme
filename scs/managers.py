@@ -1,4 +1,12 @@
-"""scs.managers"""
+"""scs.managers
+
+- These are the managers for our models in :mod:`models`.
+
+- They are not to be used directly, but accessed through
+  the ``objects`` attribute of a Model.
+
+
+"""
 
 from __future__ import absolute_import
 

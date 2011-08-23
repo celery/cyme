@@ -1,4 +1,12 @@
-"""scs.state"""
+"""scs.state
+
+- Global agent state.
+
+- Used to keep track lost connections and so on, which is used by the
+  supervisor to know if a node is actually down, or if it is just the
+  connection being shaky.
+
+"""
 
 from __future__ import absolute_import
 

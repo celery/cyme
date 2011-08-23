@@ -1,4 +1,8 @@
-"""scs.controller"""
+"""scs.controller
+
+- Actors used to manage entities across all agents.
+
+"""
 
 from __future__ import absolute_import
 
@@ -285,7 +289,6 @@ class Queue(ModelActor):
             return self.send_to_able("get", {"name": name}, to=name)
 
     def add(self, name, nowait=False, **decl):
-        print("DECL: %r" %(decl, ))
         return self.throw("add", dict({"name": name}, **decl), nowait=nowait)
 
     def delete(self, name, **kw):

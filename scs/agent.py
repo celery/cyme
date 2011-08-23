@@ -1,4 +1,15 @@
-"""scs.agent"""
+"""scs.agent
+
+- This is the Agent thread started by the :program:`scs-agent` program.
+
+  It starts the HTTP server, the Supervisor, and one or more controllers.
+
+- It also contains the :class:`Cluster` instance, which is the preferred
+  API used to control and manage worker nodes handled by this agent.
+  I.e. it can be used to do synchronous actions that don't return
+  until the supervisor has performed them.
+
+"""
 
 from __future__ import absolute_import
 

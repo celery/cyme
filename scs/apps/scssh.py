@@ -1,4 +1,9 @@
-"""scs.apps.scssh"""
+"""scs.apps.scssh
+
+- Simple way to drop into a Python shell with the SCS environment
+  set up.
+
+"""
 
 from __future__ import absolute_import, with_statement
 

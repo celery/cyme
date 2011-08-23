@@ -1,6 +1,6 @@
 """scs.web
 
-- Contains utilities for creating a Web API.
+- Contains utilities for creating our HTTP API.
 
 """
 
@@ -100,7 +100,6 @@ class ApiView(View):
         return default
 
     def params(self, *keys):
-        print("GET: %r POST: %r" % (self.request.GET, self.request.POST))
         return dict(self.get_param(key) for key in keys)
 
     def get_param(self, key, type=None):

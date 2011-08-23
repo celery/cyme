@@ -1,4 +1,8 @@
-"""scs.httpd"""
+"""scs.httpd
+
+- Our embedded WSGI server used to serve the HTTP API.
+
+"""
 
 from __future__ import absolute_import
 

@@ -1,4 +1,8 @@
-"""scs.thread"""
+"""scs.thread
+
+- Utilities for working with greenlets.
+
+"""
 
 from __future__ import absolute_import
 

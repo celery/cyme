@@ -1,4 +1,11 @@
-"""scs.apps.scs_agent"""
+"""scs.apps.scs_agent
+
+- This is the script run by the :program:`scs-agent` script installed
+  by the SCS distribution (defined in setup.py's ``entry_points``).
+
+- It in turn executes the scs-agent management command.
+
+"""
 
 from __future__ import absolute_import
 

@@ -1,3 +1,13 @@
+"""scs.tasks
+
+- We have our own version of the webhook task.
+
+- It simply forwards the original request, not depending on any semantics
+  present in the query string of the request, or in the data returned
+  in the response.
+
+"""
+
 from celery.task import task
 from requests import request
 

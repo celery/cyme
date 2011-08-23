@@ -1,3 +1,7 @@
+"""Since SCS works as a contained Django APP, this is the default settings
+file used when SCS is used outside of a Django project context."""
+
+
 import os
 import djcelery
 djcelery.setup_loader()

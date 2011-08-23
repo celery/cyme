@@ -1,4 +1,8 @@
-"""scs.apps.base"""
+"""scs.apps.base
+
+- Utilities used by command line apps.
+
+"""
 
 from __future__ import absolute_import, with_statement
 

@@ -1,4 +1,8 @@
-"""scs.client"""
+"""scs.client
+
+- The client is a Python API to use the SCS HTTP API.
+
+"""
 
 from __future__ import absolute_import
 

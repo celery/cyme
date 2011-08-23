@@ -1,4 +1,8 @@
-"""scs.intsup"""
+"""scs.intsup
+
+- Internal supervisor used to ensure our threads are still running.
+
+"""
 
 from __future__ import absolute_import, with_statement
 

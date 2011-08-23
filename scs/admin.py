@@ -1,4 +1,8 @@
-"""scs.admin"""
+"""scs.admin
+
+- Django Admin interface extensions for SCS.
+
+"""
 from __future__ import absolute_import
 
 from django.contrib import admin

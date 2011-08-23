@@ -11,6 +11,12 @@ from unipath import Path as _Path
 
 
 class Path(_Path):
+    """Path that can use the ``/`` operator to combine paths.
+
+        >>> p = Path("foo")
+        >>> p / "bar" / "baz"
+        Path("foo/bar/baz")
+    """
 
     def __div__(self, other):
         return Path(self, other)
