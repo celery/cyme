@@ -189,7 +189,7 @@ class Node(ModelActor):
 
         @cached_property
         def scs(self):
-            return find_symbol(self, ".local_nodes")
+            return find_symbol(self, ".managers.local_nodes")
 
     def get(self, name, app=None, **kw):
         return self.send_to_able("get",

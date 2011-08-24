@@ -4,11 +4,6 @@
 
   It starts the HTTP server, the Supervisor, and one or more controllers.
 
-- It also contains the :class:`LocalNodeManager` instance,
-  which is the preferred API used to control and manage worker nodes handled
-  by this agent.  I.e. it can be used to do synchronous actions that
-  don't return until the supervisor has performed them.
-
 """
 
 from __future__ import absolute_import
@@ -16,17 +11,15 @@ from __future__ import absolute_import
 import logging
 
 from celery import current_app as celery
-from celery.utils.term import colored
+from celery.utils import term
 from cl.g import Event
 from kombu.utils import gen_unique_id
 
 from . import signals
-from . import supervisor
 from .intsup import gSup
 from .state import state
 from .thread import gThread
 
-from ..models import Broker, Node
 from ..utils import instantiate, setup_logging, LazyProgressBar
 
 
@@ -41,6 +34,8 @@ class Agent(gThread):
     _components_shutdown = {}
     _presence_ready = 0
     _ready = False
+    _startup_pbar = None
+    _shutdown_pbar = None
 
     def __init__(self, addrport="", id=None, loglevel=logging.INFO,
             logfile=None, without_httpd=False, numc=2, sup_interval=None,
@@ -57,7 +52,7 @@ class Agent(gThread):
         self.numc = numc
         self.ready_event = ready_event
         self.exit_request = Event()
-        self.colored = colored or colored(enabled=False)
+        self.colored = colored or term.colored(enabled=False)
         if not self.without_httpd:
             self.httpd = gSup(instantiate(self, self.httpd_cls, addrport),
                               signals.httpd_ready)
@@ -160,68 +155,3 @@ class Agent(gThread):
         text = self.colored.blue("Startup...")
         p = self._startup_pbar = LazyProgressBar(estimate, text.embed())
         [sig.connect(p.step) for sig in tsigs + osigs]
-
-
-
-def maybe_wait(g, nowait):
-    not nowait and g.wait()
-
-
-class LocalNodeManager(object):
-    Nodes = Node._default_manager
-    Brokers = Broker._default_manager
-
-    def get(self, nodename):
-        return self.Nodes.get(name=nodename)
-
-    def add(self, nodename=None, queues=None,
-            max_concurrency=1, min_concurrency=1, broker=None,
-            pool=None, app=None, nowait=False, **kwargs):
-        broker = self.Brokers.get_or_create(url=broker)[0] if broker else None
-        node = self.Nodes.add(nodename, queues, max_concurrency,
-                              min_concurrency, broker, pool, app)
-        maybe_wait(self.sup.verify([node]), nowait)
-        return node
-
-    def remove(self, nodename, nowait=False):
-        node = self.Nodes.remove(nodename)
-        maybe_wait(self.sup.shutdown([node]), nowait)
-        return node
-
-    def restart(self, nodename, nowait=False):
-        node = self.get(nodename)
-        maybe_wait(self.sup.restart([node]), nowait)
-        return node
-
-    def enable(self, nodename, nowait=False):
-        node = self.Nodes.enable(nodename)
-        maybe_wait(self.sup.verify([node]), nowait)
-        return node
-
-    def disable(self, nodename, nowait=False):
-        node = self.Nodes.disable(nodename)
-        maybe_wait(self.sup.verify([node]), nowait)
-        return node
-
-    def add_consumer(self, name, queue, nowait=False):
-        node = self.get(name)
-        node.queues.add(queue)
-        node.save()
-        maybe_wait(self.sup.verify([node]), nowait)
-        return node
-
-    def cancel_consumer(self, name, queue, nowait=False):
-        nodes = self.Nodes.remove_queue_from_nodes(queue, name=name)
-        if nodes:
-            maybe_wait(self.sup.verify(nodes), nowait)
-        return nodes
-
-    def remove_queue(self, queue, nowait=False):
-        nodes = self.Nodes.remove_queue_from_nodes(queue)
-        maybe_wait(self.sup.verify(nodes), nowait)
-        return nodes
-
-    @property
-    def sup(self):
-        return supervisor.supervisor
-local_nodes = LocalNodeManager()

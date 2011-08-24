@@ -1,5 +1,4 @@
 """scs.utils"""
-
 from __future__ import absolute_import
 
 import sys
@@ -13,6 +12,12 @@ from kombu.utils import cached_property                # noqa
 from unipath import Path as _Path
 
 _pkg_cache = {}
+
+
+def force_list(obj):
+    if not hasattr(obj, "__iter__"):
+        return [obj]
+    return obj
 
 
 def find_package(mod, _s=None):
@@ -72,7 +77,6 @@ def setup_logging(loglevel="INFO", logfile=None):
     if isinstance(loglevel, basestring):
         loglevel = LOG_LEVELS[loglevel]
     return celery.log.setup_logging_subsystem(loglevel, logfile)
-
 
 
 class LazyProgressBar(object):

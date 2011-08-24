@@ -230,6 +230,11 @@ class Node(models.Model):
         queues = self._query("active_queues", **kwargs)
         return dict((q["name"], q) for q in queues) if queues else {}
 
+    def add_queue_eventually(self, q):
+        self.queues.add(q)
+        self.save()
+        return self
+
     def add_queue(self, q, **kwargs):
         """Add queue for this instance by name."""
         if isinstance(q, self.Queue):

@@ -12,6 +12,7 @@
     scs.client.base
     scs.agent
     scs.agent.controller
+    scs.agent.managers
     scs.agent.supervisor
     scs.agent.httpd
     scs.agent.signals
