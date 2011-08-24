@@ -16,7 +16,7 @@ from celery import current_app as celery
 from kombu import Exchange
 
 from . import metrics
-from .signals import controller_ready
+from . import signals
 from .state import state
 from .thread import gThread
 
@@ -303,7 +303,9 @@ queues = Queue()
 class Controller(ControllerBase, gThread):
     actors = [App(), Node(), Queue()]
     connect_max_retries = celery.conf.BROKER_CONNECTION_MAX_RETRIES
+    extra_shutdown_steps = 2
     _ready_sent = False
+    _presence_ready_sent = False
 
     def __init__(self, *args, **kwargs):
         ControllerBase.__init__(self, *args, **kwargs)
@@ -320,7 +322,7 @@ class Controller(ControllerBase, gThread):
 
     def on_consume_ready(self):
         if not self._ready_sent:
-            controller_ready.send(sender=self)
+            signals.controller_ready.send(sender=self)
             self._ready_sent = True
         super(Controller, self).on_consume_ready()
 
@@ -331,11 +333,18 @@ class Controller(ControllerBase, gThread):
         self.respond_to_ping()
         super(Controller, self).on_connection_error(exc, interval)
 
+    def on_presence_ready(self):
+        if not self._presence_ready_sent:
+            signals.presence_ready.send(sender=self.presence)
+            self._presence_ready_sent = True
+
     def stop(self):
         self.should_stop = True
         if hasattr(self, "presence") and self.presence.g:
             self.debug("waiting for presence to exit")
+            signals.thread_shutdown_step.send(sender=self)
             self.presence.g.wait()
+            signals.thread_shutdown_step.send(sender=self)
         super(Controller, self).stop()
 
     @property

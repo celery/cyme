@@ -13,7 +13,7 @@ recursive-include funtests *.py
 recursive-include requirements *.txt
 include funtests/setup.py
 include funtests/setup.cfg
-prune *.sqlite
+prune *.db
 prune tests/*.pyc
 prune scs/*.pyc
 prune docs/.build

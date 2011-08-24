@@ -14,6 +14,8 @@ from cl.g import blocking, Event, spawn, timer, Queue
 from cl.log import LogMixin
 from eventlet import Timeout
 
+from . import signals
+
 
 class AlreadyStartedError(Exception):
     """Raised if trying to start a thread instance that is already started."""
@@ -38,6 +40,8 @@ class gThread(LogMixin):
     _exit_event = None
     _ping_queue = None
     _timers = None
+    extra_startup_steps = 0
+    extra_shutdown_steps = 0
 
     def __init__(self):
         self.name = self.name or self.__class__.__name__
@@ -80,10 +84,12 @@ class gThread(LogMixin):
         :class:`~eventlet.greenthread.GreenThread` instance."""
         if self.g is None:
             self.before()
+            signals.thread_pre_start.send(sender=self)
             self._ping_queue = Queue()
             g = self.g = self.spawn(self._crashsafe, self.run)
             g.link(self._on_exit)
             self.debug("%s spawned", self.name)
+            signals.thread_post_start.send(sender=self)
             return g
         raise self.AlreadyStarted("can't start thread twice")
 
@@ -100,6 +106,7 @@ class gThread(LogMixin):
 
         """
         self.debug("shutdown initiated")
+        signals.thread_pre_shutdown.send(sender=self)
         self.should_stop = True
         for entry in self._timers:
             self.debug("killing timer %r" % (entry, ))
@@ -113,6 +120,7 @@ class gThread(LogMixin):
                     "exceeded exit timeout (%s), will try to kill", timeout)
                 self.kill()
         self.after()
+        signals.thread_post_shutdown.send(sender=self)
 
     def join(self, timeout=None):
         """Wait until the thread exits.
@@ -125,8 +133,10 @@ class gThread(LogMixin):
 
         """
         with self.Timeout(timeout):
+            signals.thread_pre_join.send(sender=self, timeout=timeout)
             self.debug("joining (%s)", timeout)
             blocking(self._exit_event.wait)
+            signals.thread_post_join.send(sender=self)
 
     def respond_to_ping(self):
         try:
@@ -158,6 +168,7 @@ class gThread(LogMixin):
     def _crashsafe(self, fun, *args, **kwargs):
         try:
             fun(*args, **kwargs)
+            signals.thread_exit.send(sender=self)
             self.debug("exiting")
         except Exception, exc:
             self.error("Thread crash detected: %r", exc)

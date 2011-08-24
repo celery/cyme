@@ -20,7 +20,7 @@ from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
 from . import managers
-from .utils import cached_property, find_symbol
+from ..utils import cached_property, find_symbol
 
 logger = anon_logger("Node")
 
@@ -235,7 +235,7 @@ class Node(models.Model):
         if isinstance(q, self.Queue):
             q = q.as_dict()
         else:
-            queues = find_symbol(self, ".agent.controller.queues")
+            queues = find_symbol(self, "..agent.controller.queues")
             try:
                 q = queues.get(q)
             except queues.NoRouteError:
@@ -326,7 +326,7 @@ class Node(models.Model):
 
     @property
     def statedb(self):
-        return self.instance_dir / "worker.statedb" % (self.name, )
+        return self.instance_dir / "worker.statedb"
 
     @property
     def default_args(self):
@@ -397,8 +397,10 @@ class Node(models.Model):
 
     @cached_property
     def default_pool(self):
-        return find_symbol(self, ".conf.SCS_DEFAULT_POOL")
+        return find_symbol(self, "..conf.SCS_DEFAULT_POOL")
 
     @cached_property
     def instance_dir(self):
-        return find_symbol(self, ".conf.SCS_INSTANCE_DIR") / self.name
+        dir = find_symbol(self, "..conf.SCS_INSTANCE_DIR") / self.name
+        dir.mkdir()
+        return dir

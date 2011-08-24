@@ -13,7 +13,7 @@ from __future__ import absolute_import
 from anyjson import serialize
 from djcelery.managers import ExtendedManager
 
-from .utils import cached_property, uuid
+from ..utils import cached_property, uuid
 
 
 class BrokerManager(ExtendedManager):

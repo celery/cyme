@@ -17,7 +17,7 @@ CELERYD_LOG_FORMAT = """\
 [%(asctime)s: %(levelname)s] %(message)s\
 """.strip()
 
-DB_NAME = os.environ.get("SCS_DB_NAME") or "scs.sqlite"
+DB_NAME = os.environ.get("SCS_DB_NAME") or "agent.db"
 
 # Databases
 DATABASES = {'default': {

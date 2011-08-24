@@ -50,7 +50,7 @@ class HttpServer(gThread):
         class _Log(object):
 
             def write(self, message):
-                logger.info(message)
+                logger.info(message.rstrip('\n'))
 
         return _Log()
 

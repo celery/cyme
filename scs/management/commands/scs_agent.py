@@ -47,7 +47,6 @@ Options
 from __future__ import absolute_import
 
 import atexit
-import logging
 import os
 import sys
 
@@ -136,7 +135,8 @@ class Command(CeleryCommand):
         self.enter_instance_dir()
         self.syncdb()
         self.colored = colored(kwargs.get("logfile"))
-        self.agent = instantiate(self.agent_cls, *args, **kwargs)
+        self.agent = instantiate(self.agent_cls, *args,
+                                 colored=self.colored, **kwargs)
         print(str(self.colored.cyan(self.banner())))
         get_cls_by_name(self.agent_ready_sig).connect(self.on_agent_ready)
         self.detached = kwargs.get("detach", False)
@@ -162,7 +162,7 @@ class Command(CeleryCommand):
         pid = os.getpid()
         self.set_process_title("ready")
         if not self.detached and \
-                not self.agent.logger.isEnabledFor(logging.INFO):
+                not self.agent.is_enabled_for("INFO"):
             print(str(self.colored.green("(%s) agent ready" % (pid, ))))
         sender.info(str(self.colored.green("[READY] (%s)" % (pid, ))))
 
@@ -234,7 +234,6 @@ class Command(CeleryCommand):
     def install_signal_handlers(self):
 
         def raise_SystemExit(signum, frame):
-            print("[User initiated shutdown]")
             raise SystemExit()
 
         for signal in ("TERM", "INT"):

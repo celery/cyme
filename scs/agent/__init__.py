@@ -16,6 +16,7 @@ from __future__ import absolute_import
 import logging
 
 from celery import current_app as celery
+from celery.utils.term import colored
 from cl.g import Event
 from kombu.utils import gen_unique_id
 
@@ -26,7 +27,7 @@ from .state import state
 from .thread import gThread
 
 from ..models import Broker, Node
-from ..utils import instantiate, setup_logging
+from ..utils import instantiate, setup_logging, LazyProgressBar
 
 
 class Agent(gThread):
@@ -37,11 +38,13 @@ class Agent(gThread):
     controller = None
 
     _components_ready = {}
+    _components_shutdown = {}
+    _presence_ready = 0
     _ready = False
 
     def __init__(self, addrport="", id=None, loglevel=logging.INFO,
             logfile=None, without_httpd=False, numc=2, sup_interval=None,
-            ready_event=None, **kwargs):
+            ready_event=None, colored=None, **kwargs):
         self.id = id or gen_unique_id()
         if isinstance(addrport, basestring):
             addr, _, port = addrport.partition(":")
@@ -54,6 +57,7 @@ class Agent(gThread):
         self.numc = numc
         self.ready_event = ready_event
         self.exit_request = Event()
+        self.colored = colored or colored(enabled=False)
         if not self.without_httpd:
             self.httpd = gSup(instantiate(self, self.httpd_cls, addrport),
                               signals.httpd_ready)
@@ -68,15 +72,18 @@ class Agent(gThread):
         c = self.components = list(filter(None, c))
         self._components_ready = dict(zip([z.thread for z in c],
                                           [False] * len(c)))
+        for controller in self.controllers:
+            if hasattr(controller.thread, "presence"):
+                self._components_ready[controller.thread.presence] = False
+        self._components_shutdown = dict(self._components_ready)
         super(Agent, self).__init__()
-
-    def on_controller_ready(self, sender=None, **kwargs):
-        self._component_ready(sender)
 
     def _component_ready(self, sender=None, **kwargs):
         if not self._ready:
             self._components_ready[sender] = True
             if all(self._components_ready.values()):
+                if self._startup_pbar:
+                    self._startup_pbar.finish()
                 if self.ready_event:
                     self.ready_event.send()
                     self.ready_event = None
@@ -90,10 +97,13 @@ class Agent(gThread):
         signals.controller_ready.connect(self._component_ready)
         signals.httpd_ready.connect(self._component_ready)
         signals.supervisor_ready.connect(self._component_ready)
+        signals.presence_ready.connect(self._component_ready)
         signals.agent_ready.connect(self.on_ready)
 
     def run(self):
         state.is_agent = True
+        self.setup_startup_progress()
+        self.setup_shutdown_progress()
         self.prepare_signals()
         setup_logging(self.loglevel, self.logfile)
         self.info("Starting with id %r", self.id)
@@ -113,6 +123,44 @@ class Agent(gThread):
                     pass
                 except BaseException, exc:
                     component.error("Error in shutdown: %r", exc)
+
+    def _component_shutdown(self, sender, **kwargs):
+        self._components_shutdown[sender] = True
+        if all(self._components_shutdown.values()):
+            if self._shutdown_pbar:
+                self._shutdown_pbar.finish()
+
+    def setup_shutdown_progress(self):
+        if self.is_enabled_for("DEBUG"):
+            return
+        sigs = (signals.thread_pre_shutdown,
+                signals.thread_pre_join,
+                signals.thread_post_join,
+                signals.thread_post_shutdown)
+        estimate = (len(sigs) * ((len(self.components) + 1) * 2)
+                    + sum(c.thread.extra_shutdown_steps
+                            for c in self.components))
+        text = self.colored.blue("Shutdown...")
+        p = self._shutdown_pbar = LazyProgressBar(estimate, text.embed())
+        [sig.connect(p.step) for sig in sigs]
+        signals.thread_post_shutdown.connect(self._component_shutdown)
+
+    def setup_startup_progress(self):
+        if self.is_enabled_for("INFO"):
+            return
+        tsigs = (signals.thread_pre_start,
+                 signals.thread_post_start)
+        osigs = (signals.httpd_ready,
+                 signals.supervisor_ready,
+                 signals.controller_ready,
+                 signals.agent_ready)
+
+        estimate = (len(tsigs) + ((len(self.components) + 10) * 2)
+                     + len(osigs))
+        text = self.colored.blue("Startup...")
+        p = self._startup_pbar = LazyProgressBar(estimate, text.embed())
+        [sig.connect(p.step) for sig in tsigs + osigs]
+
 
 
 def maybe_wait(g, nowait):

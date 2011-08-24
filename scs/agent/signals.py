@@ -30,3 +30,16 @@ controller_ready = Signal()
 #: Arguments:
 #:     :sender: is the :class:`~scs.agent.Agent` instance.
 agent_ready = Signal()
+
+
+thread_pre_shutdown = Signal()
+thread_pre_join = Signal(providing_args=["timeout"])
+thread_exit = Signal()
+thread_post_join = Signal()
+thread_post_shutdown = Signal()
+thread_shutdown_step = Signal()
+
+thread_pre_start = Signal()
+thread_post_start = Signal()
+thread_startup_step = Signal()
+presence_ready = Signal()

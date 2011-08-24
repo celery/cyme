@@ -127,6 +127,7 @@ setup(
         "django-celery>=2.3.1",
         "requests",
         "dictshield",
+        "progressbar"
     ],
     cmdclass={"test": RunTests,
               "citest": CIRunTests},
