@@ -64,7 +64,6 @@ from djcelery.management.base import CeleryCommand
 from django.conf import settings
 
 from scs import __version__
-from scs.signals import agent_ready
 from scs.utils import cached_property, Path
 
 BANNER = """
@@ -86,6 +85,7 @@ DEFAULT_DETACH_PIDFILE = "agent.pid"
 
 
 class Command(CeleryCommand):
+    agent_ready_sig = "scs.agent.signals.agent_ready"
     agent_cls = "scs.agent.Agent"
     name = "scs-agent"
     args = '[optional port number, or ipaddr:port]'
@@ -138,7 +138,7 @@ class Command(CeleryCommand):
         self.colored = colored(kwargs.get("logfile"))
         self.agent = instantiate(self.agent_cls, *args, **kwargs)
         print(str(self.colored.cyan(self.banner())))
-        agent_ready.connect(self.on_agent_ready)
+        get_cls_by_name(self.agent_ready_sig).connect(self.on_agent_ready)
         self.detached = kwargs.get("detach", False)
 
         return (self._detach if self.detached else self._start)(**kwargs)

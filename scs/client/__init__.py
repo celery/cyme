@@ -1,6 +1,94 @@
 """scs.client
 
-- The client is a Python API to use the SCS HTTP API.
+- Python client for the SCS HTTP API.
+
+Applications
+~~~~~~~~~~~~
+
+    >>> app = Client("http://localhost:8000").get("foo")
+    >>> app
+    <Client: 'http://localhost:8016/foo'>
+    >>> app.info
+    {'name': 'foo', 'broker': 'amqp://guest:guest@localhost:5672//'}
+
+Queues
+~~~~~~
+
+    >>> app.queues.add("myqueue", exchange="myex", routing_key="x")
+    >>> <Queue: u'myqueue'>
+    >>> my_queue = app.queues.get("my_queue")
+
+    >>> app.queues
+    [<Queue: u'myqueue'>]
+
+
+Instances
+~~~~~~~~~
+
+    >>> i = app.instances.add()
+    >>> i
+    <Instance: u'd87798f3-0bb0-4161-8e0b-a5f069b1d58b'>
+    >>> i.name
+    u'd87798f3-0bb0-4161-8e0b-a5f069b1d58b'
+
+    >>> i.broker  # < inherited from app
+    u'amqp://guest:guest@localhost:5672//'
+
+    >>> app.instances
+    [<Instance: u'd87798f3-0bb0-4161-8e0b-a5f069b1d58b'>]
+
+    >>> i.autoscale()   # current autoscale settings
+    {'max': 1, 'min': 1}
+
+    >>> i.autoscale(max=10, min=10)  # always run 10 processes
+    {'max': 10, 'min': 10}
+
+    >>> i.stats()
+    {'total': {},
+     'consumer': {'prefetch_count': 80,
+                  'broker': {'transport_options': {},
+                             'login_method': 'AMQPLAIN',
+                             'hostname': '127.0.0.1',
+                             'userid': 'guest',
+                             'insist': False,
+                             'connect_timeout': 4,
+                             'ssl': False,
+                             'virtual_host': '/',
+                             'port': 5672,
+                             'transport': 'amqp'}},
+    'pool': {'timeouts': [None, None],
+             'processes': [76003],
+             'max-concurrency': 1,
+             'max-tasks-per-child': None,
+             'put-guarded-by-semaphore': True},
+    'autoscaler': {'current': 1, 'max': 1, 'min': 1, 'qty': 0}}
+
+Consumers
+~~~~~~~~~
+
+    >>> instance.consumers.add(my_queue)
+    {"ok": "ok"}
+
+    >>> instance_consumers.delete(my_queue)
+    {"ok": "ok"}
+
+    >>> instance.consumers
+    #... consumers with full declarations ...
+
+
+Deleting
+~~~~~~~~
+
+This will delete the queue and eventually force all worker instances
+to stop consuming from it::
+
+    >>> my_queue.delete()
+
+
+This will shutdown and delete an instance::
+
+    >>> i.delete()
+
 
 """
 

@@ -10,21 +10,9 @@
 
     .. autoclass:: Broker
 
-        .. attribute:: hostname
+        .. attribute:: url
 
-            Host name or IP-address of the broker (max length 128)
-
-        .. attribute:: port
-
-            Integer specifying the port the broker is listening to.
-
-        .. attribute:: userid
-
-            User name (max length 128)
-
-        .. attribute:: password
-
-            Password (max length 128)
+            AMQP (kombu) url.
 
         .. method:: connection
 

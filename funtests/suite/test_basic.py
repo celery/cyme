@@ -1,6 +1,4 @@
-import errno
 import os
-import shutil
 import sys
 
 # funtest config
@@ -8,7 +6,7 @@ sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), os.pardir))
 
 from scs.apps.base import app, Env
-from scs.utils import cached_property, uuid
+from scs.utils import cached_property, Path, uuid
 from eventlet.event import Event
 from nose import SkipTest
 
@@ -16,7 +14,7 @@ from .utils import unittest
 
 SCS_PORT = int(os.environ.get("SCS_PORT") or 8013)
 SCS_URL = "http://127.0.0.1:%s" % (SCS_PORT, )
-SCS_INSTANCE_DIR = os.path.abspath("instances")
+SCS_INSTANCE_DIR = Path("instances").absolute()
 
 _agent = [None]
 
@@ -26,11 +24,7 @@ def start_agent(env, argv=None):
     env.syncdb(interactive=False)
     from scs.agent import Agent
     ready_event = Event()
-    try:
-        os.mkdir("instances")
-    except OSError, exc:
-        if exc.errno != errno.EEXIST:
-            raise
+    SCS_INSTANCE_DIR.mkdir()
     instance = Agent("127.0.0.1:%s" % (SCS_PORT, ), numc=1,
                     ready_event=ready_event)
     instance.start()

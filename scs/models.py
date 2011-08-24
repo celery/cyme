@@ -19,15 +19,15 @@ from eventlet import Timeout
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
-from .managers import AppManager, BrokerManager, NodeManager, QueueManager
-from .utils import cached_property
+from . import managers
+from .utils import cached_property, find_symbol
 
 logger = anon_logger("Node")
 
 
 class Broker(models.Model):
     """Broker connection arguments."""
-    objects = BrokerManager()
+    objects = managers.BrokerManager()
 
     url = models.CharField(_(u"URL"), max_length=200, unique=True)
 
@@ -60,7 +60,7 @@ class Broker(models.Model):
 class App(models.Model):
     """Application"""
     Broker = Broker
-    objects = AppManager()
+    objects = managers.AppManager()
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
     broker = models.ForeignKey(Broker, null=True, blank=True)
@@ -84,7 +84,7 @@ class App(models.Model):
 
 class Queue(models.Model):
     """An AMQP queue that can be consumed from by one or more instances."""
-    objects = QueueManager()
+    objects = managers.QueueManager()
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
     exchange = models.CharField(_(u"exchange"), max_length=128,
@@ -120,7 +120,7 @@ class Node(models.Model):
     Queue = Queue
     MultiTool = MultiTool
 
-    objects = NodeManager()
+    objects = managers.NodeManager()
     mutex = Lock()
 
     app = models.ForeignKey(App)
@@ -235,7 +235,7 @@ class Node(models.Model):
         if isinstance(q, self.Queue):
             q = q.as_dict()
         else:
-            from .controller import queues
+            queues = find_symbol(self, ".agent.controller.queues")
             try:
                 q = queues.get(q)
             except queues.NoRouteError:
@@ -318,26 +318,26 @@ class Node(models.Model):
 
     @property
     def pidfile(self):
-        return self.cwd / "celeryd@%n.pid"
+        return self.instance_dir / "worker.pid"
 
     @property
     def logfile(self):
-        return self.cwd / "celeryd@%n.log"
+        return self.instance_dir / "worker.log"
 
     @property
     def statedb(self):
-        return self.cwd / "celeryd@%s.statedb" % (self.name, )
+        return self.instance_dir / "worker.statedb" % (self.name, )
 
     @property
     def default_args(self):
         return ("--broker='%s'" % (self.broker.url, ),
-                "--workdir='%s'" % (self.cwd, ),
+                "--workdir='%s'" % (self.instance_dir, ),
                 "--pidfile='%s'" % (self.pidfile, ),
                 "--logfile='%s'" % (self.logfile, ),
                 "--queues='%s'" % (self.direct_queue, ),
                 "--statedb='%s'" % (self.statedb, ),
                 "--events",
-                "--pool='%s'" % (self.pool or self.conf.SCS_DEFAULT_POOL, ),
+                "--pool='%s'" % (self.pool or self.default_pool, ),
                 "--loglevel=INFO",
                 "--include=scs.tasks",
                 "--autoscale='%s,%s'" % (self.max_concurrency,
@@ -396,10 +396,9 @@ class Node(models.Model):
     queues = property(_get_queues, _set_queues)
 
     @cached_property
-    def conf(self):
-        from . import conf
-        return conf
+    def default_pool(self):
+        return find_symbol(self, ".conf.SCS_DEFAULT_POOL")
 
     @cached_property
-    def cwd(self):
-        return self.conf.SCS_INSTANCE_DIR
+    def instance_dir(self):
+        return find_symbol(self, ".conf.SCS_INSTANCE_DIR") / self.name

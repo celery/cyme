@@ -35,7 +35,7 @@ TEMPLATE_LOADERS = (
         'django.template.loaders.app_directories.Loader',
     )),
 )
-ROOT_URLCONF = "scs.urls"
+ROOT_URLCONF = "scs.api.urls"
 
 # Time and localization.
 TIME_ZONE = "UTC"
@@ -48,6 +48,7 @@ INSTALLED_APPS = ("django.contrib.auth",
                   "django.contrib.sessions",
                   "django.contrib.sites",
                   "scs",  # scs must come before admin.
+                  "scs.api",
                   "django.contrib.admin",
                   "django.contrib.admindocs")
 

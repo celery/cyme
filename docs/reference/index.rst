@@ -9,19 +9,23 @@
     :maxdepth: 1
 
     scs.client
+    scs.client.base
     scs.agent
-    scs.controller
-    scs.views
+    scs.agent.controller
+    scs.agent.supervisor
+    scs.agent.httpd
+    scs.agent.signals
+    scs.agent.state
+    scs.agent.metrics
+    scs.agent.thread
+    scs.agent.intsup
+    scs.api.views
+    scs.api.web
+    scs.managers
+    scs.models
     scs.tasks
+    scs.management.commands.scs_agent
     scs.apps.base
     scs.apps.scs_agent
     scs.apps.scssh
-    scs.httpd
-    scs.management.commands.scs_agent
-    scs.managers
-    scs.metrics
-    scs.models
-    scs.state
-    scs.supervisor
-    scs.thread
     scs.utils

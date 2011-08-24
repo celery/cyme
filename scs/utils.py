@@ -2,12 +2,41 @@
 
 from __future__ import absolute_import
 
+import sys
+
 from importlib import import_module
 
+from celery.utils import get_symbol_by_name
 from cl.utils.functional import promise, maybe_promise # noqa
 from kombu.utils import gen_unique_id as uuid          # noqa
 from kombu.utils import cached_property                # noqa
 from unipath import Path as _Path
+
+_pkg_cache = {}
+
+
+def find_package(mod, _s=None):
+    pkg = None
+    _s = _s or mod
+    if not mod:
+        return
+    if mod in _pkg_cache:
+        pkg = _pkg_cache[_s] = _pkg_cache[mod]
+    else:
+        _mod = sys.modules[mod]
+        if _mod.__package__:
+            pkg = _pkg_cache[_s] = _mod.__package__
+    return pkg or find_package('.'.join(mod.split('.')[:-1]), _s)
+
+
+def find_symbol(origin, sym):
+    return get_symbol_by_name(sym,
+                package=find_package(getattr(origin, "__module__", None
+                                        or origin.__class__.__module__)))
+
+
+def instantiate(origin, sym, *args, **kwargs):
+    return find_symbol(origin, sym)(*args, **kwargs)
 
 
 class Path(_Path):

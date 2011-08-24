@@ -13,7 +13,7 @@ from djcelery.admin_utils import action, display_field, fixedwidth
 from djcelery.utils import naturaldate
 
 from .models import Broker, Node, Queue
-from .supervisor import supervisor
+from .agent.supervisor import supervisor
 
 
 @display_field(_("max/min concurrency"), "max_concurrency")
