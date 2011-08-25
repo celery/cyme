@@ -48,22 +48,16 @@ from __future__ import absolute_import
 
 import atexit
 import os
-import sys
 
-from optparse import make_option as Option
 
 from celery.bin.base import daemon_options
 from celery.platforms import (create_pidlock, detached,
                               signals, set_process_title)
 from celery.log import colored
-from celery.utils import LOG_LEVELS, get_cls_by_name, instantiate
+from celery.utils import get_cls_by_name, instantiate
 from cl.utils import shortuuid
-from djcelery.management.base import CeleryCommand
 
-from django.conf import settings
-
-from scs import __version__
-from scs.utils import cached_property, Path
+from .base import SCSCommand, Option
 
 BANNER = """
  -------------- scs@%(id)s v%(version)s
@@ -83,12 +77,12 @@ DEFAULT_DETACH_LOGFILE = "agent.log"
 DEFAULT_DETACH_PIDFILE = "agent.pid"
 
 
-class Command(CeleryCommand):
+class Command(SCSCommand):
     agent_ready_sig = "scs.agent.signals.agent_ready"
     agent_cls = "scs.agent.Agent"
     name = "scs-agent"
     args = '[optional port number, or ipaddr:port]'
-    option_list = CeleryCommand.option_list + (
+    option_list = SCSCommand.option_list + (
         Option('--broker', '-b',
             default=None, action="store", dest="broker",
             help="""Broker URL to use for agent connection.\
@@ -117,17 +111,6 @@ class Command(CeleryCommand):
     ) + daemon_options(DEFAULT_DETACH_PIDFILE)
 
     help = 'Starts the SCS agent'
-    # see http://code.djangoproject.com/changeset/13319.
-    stdout, stderr = sys.stdout, sys.stderr
-
-    def __init__(self, env=None, *args, **kwargs):
-        if env is None:
-            env = instantiate("scs.apps.base.Env")
-            env.before()
-        self.env = env
-
-    def get_version(self):
-        return "scs v%s" % (__version__, )
 
     def handle(self, *args, **kwargs):
         """Handle the management command."""
@@ -143,20 +126,8 @@ class Command(CeleryCommand):
 
         return (self._detach if self.detached else self._start)(**kwargs)
 
-    def syncdb(self):
-        from django.db.utils import DEFAULT_DB_ALIAS
-        dbconf = settings.DATABASES[DEFAULT_DB_ALIAS]
-        if dbconf["ENGINE"] == "django.db.backends.sqlite3":
-            if Path(dbconf["NAME"]).absolute().exists():
-                return
-        self.env.syncdb()
-
     def stop(self):
         self.set_process_title("shutdown...")
-
-    def enter_instance_dir(self):
-        self.instance_dir.mkdir(parents=True)
-        self.instance_dir.chdir()
 
     def on_agent_ready(self, sender=None, **kwargs):
         pid = os.getpid()
@@ -183,29 +154,6 @@ class Command(CeleryCommand):
         except SystemExit:
             self.agent.stop()
 
-    def prepare_options(self, broker=None, loglevel=None, logfile=None,
-            pidfile=None, detach=None, instance_dir=None, **kwargs):
-        if detach:
-            logfile = logfile or DEFAULT_DETACH_LOGFILE
-            pidfile = pidfile or DEFAULT_DETACH_PIDFILE
-        if broker:
-            settings.BROKER_HOST = broker
-        if instance_dir:
-            settings.SCS_INSTANCE_DIR = instance_dir
-        if pidfile and not os.path.isabs(pidfile):
-            pidfile = os.path.join(self.instance_dir, pidfile)
-        if logfile and not os.path.isabs(logfile):
-            logfile = os.path.join(self.instance_dir, logfile)
-        if not isinstance(loglevel, int):
-            try:
-                loglevel = LOG_LEVELS[loglevel.upper()]
-            except KeyError:
-                self.die("Unknown level %r. Please use one of %s." % (
-                            loglevel, "|".join(l for l in LOG_LEVELS.keys()
-                                        if isinstance(l, basestring))))
-        return dict(kwargs, loglevel=loglevel, detach=detach,
-                            logfile=logfile, pidfile=pidfile)
-
     def banner(self):
         agent = self.agent
         addr, port = agent.addrport
@@ -216,9 +164,9 @@ class Command(CeleryCommand):
             pres_interval = "(disabled)"
         sup = agent.supervisor.thread
         return BANNER % {"id": agent.id,
-                         "version": __version__,
+                         "version": self.__version__,
                          "broker": agent.connection.as_uri(),
-                         "loglevel": LOG_LEVELS[agent.loglevel],
+                         "loglevel": self.LOG_LEVELS[agent.loglevel],
                          "logfile": agent.logfile or "[stderr]",
                          "addr": addr or "localhost",
                          "port": port or 8000,
@@ -226,10 +174,6 @@ class Command(CeleryCommand):
                          "presence.interval": pres_interval,
                          "controllers": len(con),
                          "instance_dir": self.instance_dir}
-
-    def die(self, msg, exitcode=1):
-        sys.stderr.write("Error: %s\n" % (msg, ))
-        sys.exit(exitcode)
 
     def install_signal_handlers(self):
 
@@ -245,7 +189,3 @@ class Command(CeleryCommand):
 
     def repr_controller_id(self, c):
         return shortuuid(c) + c[-2:]
-
-    @cached_property
-    def instance_dir(self):
-        return get_cls_by_name("scs.conf.SCS_INSTANCE_DIR")

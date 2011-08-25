@@ -111,8 +111,7 @@ class App(ModelActor):
             app = self._get(name)
             if not app:
                 raise KeyError(name)
-            self._cache[name] = (objects.recreate(**app)
-                    if state.is_agent else objects.instance(**app))
+            self._cache[name] = objects.recreate(**app)
 
         return self._cache[name]
 

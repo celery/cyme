@@ -197,13 +197,17 @@ class Node(models.Model):
         """Returns node statistics (as ``celeryctl inspect stats``)."""
         return self._query("stats", **kwargs)
 
-    def autoscale(self, max=None, min=None, **kwargs):
-        """Set min/max autoscale settings."""
+    def _update_autoscale(self, max=None, min=None):
         if max is not None:
             self.max_concurrency = max
         if min is not None:
             self.min_concurrency = min
         self.save()
+        return [self.max_concurrency, self.min_concurrency]
+
+    def autoscale(self, max=None, min=None, **kwargs):
+        """Set min/max autoscale settings."""
+        self._update_autoscale(max, min)
         return self._query("autoscale", dict(max=max, min=min), **kwargs)
 
     def responds_to_ping(self, **kwargs):
@@ -232,6 +236,11 @@ class Node(models.Model):
 
     def add_queue_eventually(self, q):
         self.queues.add(q)
+        self.save()
+        return self
+
+    def remove_queue_eventually(self, q):
+        self.queues.remove(q)
         self.save()
         return self
 

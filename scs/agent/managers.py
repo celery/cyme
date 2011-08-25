@@ -62,3 +62,4 @@ class LocalNodeManager(object):
             g = fun(force_list(nodes))
             nowait and g.wait()
         return nodes
+local_nodes = LocalNodeManager()

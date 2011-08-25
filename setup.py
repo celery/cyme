@@ -145,8 +145,7 @@ setup(
     ],
     entry_points={
         "console_scripts": ["scs-agent = scs.apps.scs_agent:scs_agent",
-                            "scs       = scs.apps.scs:scs",
-                            "scssh     = scs.apps.scssh:scssh"],
+                            "scs       = scs.apps.scs:scs"]
     },
     long_description=long_description,
 )

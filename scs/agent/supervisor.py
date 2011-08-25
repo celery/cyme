@@ -286,6 +286,16 @@ class Supervisor(gThread):
             ib(node.autoscale, max, min)
 
 
+class _MockSupervisor(object):
+
+    def wait(self):
+        pass
+
+    def _noop(self, *args, **kwargs):
+        return self
+    verify = shutdown = restart = _noop
+
+
 def set_current(sup):
     global __current
     __current = sup
@@ -294,7 +304,7 @@ def set_current(sup):
 
 def get_current():
     if __current is None:
-        set_current(Supervisor())
+        return _MockSupervisor()
     return __current
 
 supervisor = LocalProxy(get_current)
