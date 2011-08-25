@@ -163,8 +163,8 @@ class Command(CeleryCommand):
         self.set_process_title("ready")
         if not self.detached and \
                 not self.agent.is_enabled_for("INFO"):
-            print(str(self.colored.green("(%s) agent ready" % (pid, ))))
-        sender.info(str(self.colored.green("[READY] (%s)" % (pid, ))))
+            print("(%s) agent ready" % (pid, ))
+        sender.info("[READY] (%s)" % (pid, ))
 
     def _detach(self, logfile=None, pidfile=None, uid=None, gid=None,
             umask=None, working_directory=None, **kwargs):

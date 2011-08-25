@@ -81,10 +81,11 @@ def setup_logging(loglevel="INFO", logfile=None):
 
 class LazyProgressBar(object):
 
-    def __init__(self, size, description=None):
+    def __init__(self, size, description=None, endtext=None):
         self.size = size
         self.current = 0
         self.description = description
+        self.endtext = endtext
         self._finished = False
 
     def step(self, i=1, **kwargs):
@@ -104,6 +105,8 @@ class LazyProgressBar(object):
         if not self._finished:
             self._bar.finish()
             self._finished = True
+            if self.endtext:
+                sys.stderr.write(self.endtext)
 
     @cached_property
     def _bar(self):

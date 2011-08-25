@@ -128,6 +128,7 @@ class Agent(gThread):
     def setup_shutdown_progress(self):
         if self.is_enabled_for("DEBUG"):
             return
+        c = self.colored
         sigs = (signals.thread_pre_shutdown,
                 signals.thread_pre_join,
                 signals.thread_post_join,
@@ -135,14 +136,16 @@ class Agent(gThread):
         estimate = (len(sigs) * ((len(self.components) + 1) * 2)
                     + sum(c.thread.extra_shutdown_steps
                             for c in self.components))
-        text = self.colored.blue("Shutdown...")
-        p = self._shutdown_pbar = LazyProgressBar(estimate, text.embed())
+        text = c.white("Shutdown...").embed()
+        p = self._shutdown_pbar = LazyProgressBar(estimate, text,
+                                                  c.reset().embed())
         [sig.connect(p.step) for sig in sigs]
         signals.thread_post_shutdown.connect(self._component_shutdown)
 
     def setup_startup_progress(self):
         if self.is_enabled_for("INFO"):
             return
+        c = self.colored
         tsigs = (signals.thread_pre_start,
                  signals.thread_post_start)
         osigs = (signals.httpd_ready,
@@ -152,6 +155,7 @@ class Agent(gThread):
 
         estimate = (len(tsigs) + ((len(self.components) + 10) * 2)
                      + len(osigs))
-        text = self.colored.blue("Startup...")
-        p = self._startup_pbar = LazyProgressBar(estimate, text.embed())
+        text = c.white("Startup...").embed()
+        p = self._startup_pbar = LazyProgressBar(estimate, text,
+                                                 c.reset().embed())
         [sig.connect(p.step) for sig in tsigs + osigs]
