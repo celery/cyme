@@ -12,26 +12,26 @@ from django.utils.translation import ugettext_lazy as _
 from djcelery.admin_utils import action, display_field, fixedwidth
 from djcelery.utils import naturaldate
 
-from .models import Broker, Node, Queue
+from .models import Broker, Instance, Queue
 from .agent.supervisor import supervisor
 
 
 @display_field(_("max/min concurrency"), "max_concurrency")
-def maxmin_concurrency(node):
-    return "%s / %s" % (node.max_concurrency, node.min_concurrency)
+def maxmin_concurrency(instance):
+    return "%s / %s" % (instance.max_concurrency, instance.min_concurrency)
 
 
 @display_field(_("created"), "created_at")
-def created_at(node):
+def created_at(instance):
     return """<div title="%s">%s</div>""" % (
-                escape(str(node.created_at)),
-                escape(naturaldate(node.created_at)))
+                escape(str(instance.created_at)),
+                escape(naturaldate(instance.created_at)))
 
 
 @display_field(_("status"), "is_enabled")
-def status(node):
-    enabled = "Enabled" if node.is_enabled else "Disabled"
-    if node.alive():
+def status(instance):
+    enabled = "Enabled" if instance.is_enabled else "Disabled"
+    if instance.alive():
         state, color = "ONLINE", "green"
     else:
         state, color = "OFFLINE", "red"
@@ -39,7 +39,7 @@ def status(node):
             enabled, color, state)
 
 
-class NodeAdmin(admin.ModelAdmin):
+class InstanceAdmin(admin.ModelAdmin):
     detail_title = _("Instance detail")
     list_page_title = _("Instances")
     date_hierarchy = "created_at"
@@ -54,27 +54,27 @@ class NodeAdmin(admin.ModelAdmin):
     read_only_fields = ("created_at", )
     list_filter = ("name", "max_concurrency", "min_concurrency", "_queues")
     search_fields = ("name", "max_concurrency", "min_concurrency", "_queues")
-    actions = ["disable_nodes",
-               "enable_nodes",
-               "restart_nodes"]
+    actions = ["disable_instances",
+               "enable_instances",
+               "restart_instances"]
 
     @action(_("Disable selected instances"))
-    def disable_nodes(self, request, queryset):
-        for node in queryset:
-            node.disable()
+    def disable_instances(self, request, queryset):
+        for instance in queryset:
+            instance.disable()
         supervisor.verify(queryset).wait()
 
     @action(_("Enable selected instances"))
-    def enable_nodes(self, request, queryset):
-        for node in queryset:
-            node.enable()
+    def enable_instances(self, request, queryset):
+        for instance in queryset:
+            instance.enable()
         supervisor.verify(queryset).wait()
 
     @action(_("Restart selected instances"))
-    def restart_nodes(self, request, queryset):
+    def restart_instances(self, request, queryset):
         supervisor.restart(queryset).wait()
 
 
 admin.site.register(Broker)
-admin.site.register(Node, NodeAdmin)
+admin.site.register(Instance, InstanceAdmin)
 admin.site.register(Queue)

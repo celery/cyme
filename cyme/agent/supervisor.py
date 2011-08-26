@@ -20,12 +20,12 @@ from .signals import supervisor_ready
 from .state import state
 from .thread import gThread
 
-from ..models import Node
+from ..models import Instance
 
 __current = None
 
 
-def insured(node, fun, *args, **kwargs):
+def insured(instance, fun, *args, **kwargs):
     """Ensures any function performing a broadcast command completes
     despite intermittent connection failures."""
 
@@ -34,7 +34,7 @@ def insured(node, fun, *args, **kwargs):
             "Error while trying to broadcast %r: %r\n" % (fun, exc))
         supervisor.pause()
 
-    return _insured(node.broker.pool, fun, args, kwargs,
+    return _insured(instance.broker.pool, fun, args, kwargs,
                     on_revive=state.on_broker_revive,
                     errback=errback)
 
@@ -50,7 +50,7 @@ class Supervisor(gThread):
     operations can be either async or sync.
 
     :keyword interval:  This is the interval (in seconds as an int/float),
-       between verifying all the registered nodes.
+       between verifying all the registered instances.
     :keyword queue: Custom :class:`~Queue.Queue` instance used to send
         and receive commands.
 
@@ -61,7 +61,7 @@ class Supervisor(gThread):
         * Restarting unresponsive/killed instances.
         * Making sure the instances consumes from the queues
           specified in the model, sending ``add_consumer``/-
-          ``cancel_consumer`` broadcast commands to the nodes as it
+          ``cancel_consumer`` broadcast commands to the instances as it
           finds inconsistencies.
         * Making sure the max/min concurrency setting is as specified in the
           model,  sending ``autoscale`` broadcast commands to the noes
@@ -76,7 +76,8 @@ class Supervisor(gThread):
     by the :attr:`wait_after_broker_revived` attribute).
 
     """
-    #: Limit node restarts to 1/m, out of control nodes will be restarted.
+    #: Limit instance restarts to 1/m, so out of control
+    #: instances will be disabled
     restart_max_rate = "1/m"
 
     #: Default interval_max for ensure_connection is 30 secs.
@@ -120,33 +121,33 @@ class Supervisor(gThread):
                 self.debug("resuming")
                 self.paused = False
 
-    def verify(self, nodes, ratelimit=False):
-        """Verify the consistency of one or more nodes.
+    def verify(self, instances, ratelimit=False):
+        """Verify the consistency of one or more instances.
 
-        :param nodes: List of nodes to verify.
+        :param instances: List of instances to verify.
 
         This operation is asynchronous, and returns a :class:`Greenlet`
         instance that can be used to wait for the operation to complete.
 
         """
-        return self._request(nodes, self._do_verify_node,
+        return self._request(instances, self._do_verify_instance,
                             {"ratelimit": ratelimit})
 
-    def restart(self, nodes):
-        """Restart one or more nodes.
+    def restart(self, instances):
+        """Restart one or more instances.
 
-        :param nodes: List of nodes to restart.
+        :param instances: List of instances to restart.
 
         This operation is asynchronous, and returns a :class:`Greenlet`
         instance that can be used to wait for the operation to complete.
 
         """
-        return self._request(nodes, self._do_restart_node)
+        return self._request(instances, self._do_restart_instance)
 
-    def shutdown(self, nodes):
-        """Shutdown one or more nodes.
+    def shutdown(self, instances):
+        """Shutdown one or more instances.
 
-        :param nodes: List of nodes to stop.
+        :param instances: List of instances to stop.
 
         This operation is asynchronous, and returns a :class:`Greenlet`
         instance that can be used to wait for the operation to complete.
@@ -154,11 +155,11 @@ class Supervisor(gThread):
         .. warning::
 
             Note that the supervisor will automatically restart
-            any stopped nodes unless the corresponding :class:`Node`
+            any stopped instances unless the corresponding :class:`Instance`
             model has been marked as disabled.
 
         """
-        return self._request(nodes, self._do_stop_node)
+        return self._request(instances, self._do_stop_instance)
 
     def before(self):
         self.start_periodic_timer(self.interval, self._verify_all)
@@ -169,16 +170,16 @@ class Supervisor(gThread):
         supervisor_ready.send(sender=self)
         while not self.should_stop:
             try:
-                nodes, event, action, kwargs = queue.get(timeout=1)
+                instances, event, action, kwargs = queue.get(timeout=1)
             except Empty:
                 self.respond_to_ping()
                 continue
             self.respond_to_ping()
             self._rinfo("wake-up")
             try:
-                for node in nodes:
+                for instance in instances:
                     try:
-                        action(node, **kwargs)
+                        action(instance, **kwargs)
                     except Exception, exc:
                         self.error("Event caused exception: %r", exc)
             finally:
@@ -192,98 +193,102 @@ class Supervisor(gThread):
                 pass
             force = True
         if not self._last_update or force:
-            self._last_update = self.verify(Node.objects.all(), ratelimit=True)
+            self._last_update = self.verify(Instance.objects.all(),
+                                            ratelimit=True)
 
-    def _request(self, nodes, action, kwargs={}):
+    def _request(self, instances, action, kwargs={}):
         event = Event()
-        self.queue.put_nowait((nodes, event, action, kwargs))
+        self.queue.put_nowait((instances, event, action, kwargs))
         return event
 
-    def _verify_restart_node(self, node):
-        """Restarts the node, and verifies that the node is able to start."""
-        self.warn("%s node.restart" % (node, ))
-        blocking(node.restart)
+    def _verify_restart_instance(self, instance):
+        """Restarts the instance, and verifies that the instance is
+        actually able to start."""
+        self.warn("%s instance.restart" % (instance, ))
+        blocking(instance.restart)
         is_alive = False
         for i in fxrangemax(0.1, 1, 0.4, 30):
-            self.info("%s pingWithTimeout: %s", node, i)
+            self.info("%s pingWithTimeout: %s", instance, i)
             self.respond_to_ping()
-            if insured(node, node.responds_to_ping, timeout=i):
+            if insured(instance, instance.responds_to_ping, timeout=i):
                 is_alive = True
                 break
         if is_alive:
-            self.warn("%s successfully restarted" % (node, ))
+            self.warn("%s successfully restarted" % (instance, ))
         else:
-            self.warn("%s node doesn't respond after restart" % (
-                    node, ))
+            self.warn("%s instance doesn't respond after restart" % (
+                    instance, ))
 
     def _can_restart(self):
         """Returns true if the supervisor is allowed to restart
-        nodes at this point."""
+        an instance at this point."""
         if state.broker_last_revived is None:
             return True
         return state.time_since_broker_revived \
                 > self.wait_after_broker_revived
 
-    def _do_restart_node(self, node, ratelimit=False):
-        bucket = self._buckets[node.restart]
+    def _do_restart_instance(self, instance, ratelimit=False):
+        bucket = self._buckets[instance.restart]
         if ratelimit:
             if self._can_restart():
                 if bucket.can_consume(1):
-                    self._verify_restart_node(node)
+                    self._verify_restart_instance(instance)
                 else:
-                    self.error("%s node.disabled: Restarted too often", node)
-                    node.disable()
-                    self._buckets.pop(node.restart)
+                    self.error(
+                        "%s instance.disabled: Restarted too often", instance)
+                    instance.disable()
+                    self._buckets.pop(instance.restart)
         else:
-            self._buckets.pop(node.restart, None)
-            self._verify_restart_node(node)
+            self._buckets.pop(instance.restart, None)
+            self._verify_restart_instance(instance)
 
-    def _do_stop_node(self, node):
-        self.warn("%s node.shutdown" % (node, ))
-        blocking(node.stop)
+    def _do_stop_instance(self, instance):
+        self.warn("%s instance.shutdown" % (instance, ))
+        blocking(instance.stop)
 
-    def _do_verify_node(self, node, ratelimit=False):
+    def _do_verify_instance(self, instance, ratelimit=False):
         if not self.paused:
-            if node.is_enabled and node.pk:
-                if not ib(node.alive):
-                    self._do_restart_node(node, ratelimit=ratelimit)
-                self._verify_node_processes(node)
-                self._verify_node_queues(node)
+            if instance.is_enabled and instance.pk:
+                if not ib(instance.alive):
+                    self._do_restart_instance(instance, ratelimit=ratelimit)
+                self._verify_instance_processes(instance)
+                self._verify_instance_queues(instance)
             else:
-                if ib(node.alive):
-                    self._do_stop_node(node)
+                if ib(instance.alive):
+                    self._do_stop_instance(instance)
 
-    def _verify_node_queues(self, node):
-        """Verify that the queues the node is consuming from matches
+    def _verify_instance_queues(self, instance):
+        """Verify that the queues the instance is consuming from matches
         the queues listed in the model."""
-        queues = set(node.queues)
-        reply = ib(node.consuming_from)
+        queues = set(instance.queues)
+        reply = ib(instance.consuming_from)
         if reply is None:
             return
         consuming_from = set(reply.keys())
 
         for queue in consuming_from ^ queues:
             if queue in queues:
-                self.warn("%s: node.consume_from: %s" % (node, queue))
-                ib(node.add_queue, queue)
-            elif queue == node.direct_queue:
+                self.warn("%s: instance.consume_from: %s" % (instance, queue))
+                ib(instance.add_queue, queue)
+            elif queue == instance.direct_queue:
                 pass
             else:
-                self.warn("%s: node.cancel_consume: %s" % (node, queue))
-                ib(node.cancel_queue, queue)
+                self.warn(
+                    "%s: instance.cancel_consume: %s" % (instance, queue))
+                ib(instance.cancel_queue, queue)
 
-    def _verify_node_processes(self, node):
+    def _verify_instance_processes(self, instance):
         """Verify that the max/min concurrency settings of the
-        node matches that which is specified in the model."""
-        max, min = node.max_concurrency, node.min_concurrency
+        instance matches that which is specified in the model."""
+        max, min = instance.max_concurrency, instance.min_concurrency
         try:
-            current = insured(node, node.stats)["autoscaler"]
+            current = insured(instance, instance.stats)["autoscaler"]
         except (TypeError, KeyError):
             return
         if max != current["max"] or min != current["min"]:
-            self.warn("%s: node.set_autoscale max=%r min=%r" % (
-                node, max, min))
-            ib(node.autoscale, max, min)
+            self.warn("%s: instance.set_autoscale max=%r min=%r" % (
+                instance, max, min))
+            ib(instance.autoscale, max, min)
 
 
 class _MockSupervisor(object):

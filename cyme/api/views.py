@@ -9,7 +9,7 @@ from celery.result import AsyncResult
 from cl.pools import producers
 
 from . import web
-from ..agent.controller import apps, nodes, queues
+from ..agent.controller import apps, instances, queues
 from ..tasks import webhook
 from ..utils import uuid
 
@@ -30,13 +30,13 @@ class App(web.ApiView):
 class Instance(web.ApiView):
 
     def get(self, request, app, name=None, nowait=False):
-        return nodes.get(name) if name else nodes.all(app=app)
+        return instances.get(name) if name else instances.all(app=app)
 
     def delete(self, request, app, name, nowait=False):
-        return self.Ok(nodes.remove(name, nowait=nowait))
+        return self.Ok(instances.remove(name, nowait=nowait))
 
     def put(self, request, app, name=None, nowait=False):
-        return self.Created(nodes.add(name=name, app=app,
+        return self.Created(instances.add(name=name, app=app,
                                       nowait=nowait,
                                       **self.params("broker", "pool")))
     post = put
@@ -45,14 +45,14 @@ class Instance(web.ApiView):
 class Consumer(web.ApiView):
 
     def get(self, request, app, name, queue=None, nowait=False):
-        return nodes.consuming_from(name)
+        return instances.consuming_from(name)
 
     def put(self, request, app, name, queue, nowait=False):
-        return self.Created(nodes.add_consumer(name, queue, nowait=nowait))
+        return self.Created(instances.add_consumer(name, queue, nowait=nowait))
     post = put
 
     def delete(self, request, app, name, queue, nowait=False):
-        return self.Ok(nodes.cancel_consumer(name, queue, nowait=nowait))
+        return self.Ok(instances.cancel_consumer(name, queue, nowait=nowait))
 
 
 class Queue(web.ApiView):
@@ -123,18 +123,18 @@ class apply(web.ApiView):
 class autoscale(web.ApiView):
 
     def get(self, request, app, name):
-        node = nodes.get(name)
-        return {"max": node["max_concurrency"], "min": node["min_concurrency"]}
+        instance = instances.get(name)
+        return {"max": instance["max_concurrency"],
+                "min": instance["min_concurrency"]}
 
     def post(self, request, app, name, nowait=False):
-        return self.Ok(nodes.autoscale(name, nowait=nowait,
-                                       **self.params(("max", int),
-                                                     ("min", int))))
+        return self.Ok(instances.autoscale(name, nowait=nowait,
+                        **self.params(("max", int), ("min", int))))
 
 
 @web.simple_get
 def instance_stats(self, request, app, name):
-    return nodes.stats(name)
+    return instances.stats(name)
 
 
 @web.simple_get

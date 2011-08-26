@@ -230,10 +230,10 @@ class LocalI(I):
 
     def __init__(self, *args, **kwargs):
         super(LocalI, self).__init__(*args, **kwargs)
-        from cyme.agent.controller import apps, nodes, queues
+        from cyme.agent.controller import apps, instances, queues
         self.get_app = apps.get
         self.apps = apps.state
-        self.nodes = nodes.state
+        self.instances = instances.state
         self.queues = queues.state
 
     def all_apps(self):
@@ -250,38 +250,40 @@ class LocalI(I):
         return {"ok": "ok"}
 
     def all_instances(self):
-        return [node.as_dict()
-                    for node in self.nodes.objects.filter(
+        return [instance.as_dict()
+                    for instance in self.instances.objects.filter(
                         app=self.get_app(self.app))]
 
     def get_instance(self, name):
-        return self.nodes.get(name, app=self.app)
+        return self.instances.get(name, app=self.app)
 
     def add_instance(self, name=None, broker=None):
-        return self.nodes.add(name, broker=broker, app=self.app)
+        return self.instances.add(name, broker=broker, app=self.app)
 
     def delete_instance(self, name):
-        return {"ok": self.nodes.remove(name)}
+        return {"ok": self.instances.remove(name)}
 
     def instance_stats(self, name):
-        return self.nodes.stats(name)
+        return self.instances.stats(name)
 
-    def _get_node(self, name):
-        return self.nodes.objects.get(name=name)
+    def _get_instance(self, name):
+        return self.instances.objects.get(name=name)
 
     def instance_autoscale(self, name, max=None, min=None):
         return dict(zip(["max", "min"],
-                    self._get_node(name=name)._update_autoscale(max, min)))
+                    self._get_instance(name=name)._update_autoscale(max, min)))
 
     def all_consumers(self, instance_name):
-        return self._get_node(name=instance_name).consuming_from()
+        return self._get_instance(name=instance_name).consuming_from()
 
     def add_consumer(self, instance_name, queue_name):
-        self._get_node(name=instance_name).add_queue_eventually(queue_name)
+        self._get_instance(name=instance_name)\
+                .add_queue_eventually(queue_name)
         return {"ok": "ok"}
 
     def delete_consumer(self, instance_name, queue_name):
-        self._get_node(name=instance_name).remove_queue_eventually(queue_name)
+        self._get_instance(name=instance_name)\
+                .remove_queue_eventually(queue_name)
         return {"ok": "ok"}
 
     def all_queues(self):
@@ -300,7 +302,7 @@ class LocalI(I):
                                      **options)
 
     def delete_queue(self, name):
-        self.nodes.remove_queue_from_all(name)
+        self.instances.remove_queue_from_all(name)
         return {"ok": self.queues.delete(name)}
 
 

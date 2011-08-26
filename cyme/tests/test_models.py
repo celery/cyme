@@ -1,7 +1,7 @@
 from celery.tests.utils import unittest
 from mock import Mock
 
-from cyme.models import Node, Queue
+from cyme.models import Instance, Queue
 
 
 class test_Queue(unittest.TestCase):
@@ -19,23 +19,23 @@ class test_Queue(unittest.TestCase):
         self.assertEqual(x[0], q1)
 
 
-class test_Node(unittest.TestCase):
+class test_Instance(unittest.TestCase):
 
     def setUp(self):
-        self._mt, Node.MultiTool = Node.MultiTool, Mock()
-        self._query, Node._query = Node._query, Mock()
+        self._mt, Instance.MultiTool = Instance.MultiTool, Mock()
+        self._query, Instance._query = Instance._query, Mock()
 
     def tearDown(self):
-        Node.MultiTool = self._mt
-        Node._query = self._query
+        Instance.MultiTool = self._mt
+        Instance._query = self._query
         Queue.objects.all().delete()
-        Node.objects.all().delete()
+        Instance.objects.all().delete()
 
     def test__unicode__(self):
-        self.assertTrue(unicode(Node(name="foo")))
+        self.assertTrue(unicode(Instance(name="foo")))
 
     def test_add(self):
-        n1 = Node.objects.add()
+        n1 = Instance.objects.add()
         self.assertTrue(n1.name)
         self.assertTrue(n1.default_args)
         self.assertTrue(n1.direct_queue)
@@ -44,22 +44,22 @@ class test_Node(unittest.TestCase):
         self.assertTrue(n1.argv)
         self.assertIsNone(n1.getpid())
 
-        n2 = Node.objects.add("foo")
+        n2 = Instance.objects.add("foo")
         self.assertEqual(n2.name, "foo")
 
         n1.disable()
-        self.assertFalse(Node.objects.get(name=n1.name).is_enabled)
+        self.assertFalse(Instance.objects.get(name=n1.name).is_enabled)
         n1.enable()
-        self.assertTrue(Node.objects.get(name=n1.name).is_enabled)
+        self.assertTrue(Instance.objects.get(name=n1.name).is_enabled)
 
     def test_start_stop_restart(self):
-        n = Node.objects.add()
+        n = Instance.objects.add()
         n.start()
         n.stop()
         n.restart()
 
     def test_add_cancel_queue(self):
-        n = Node.objects.add()
+        n = Instance.objects.add()
         q = Queue.objects.create(name="xiziasd")
         q.save()
 
@@ -72,15 +72,15 @@ class test_Node(unittest.TestCase):
         n._query.assert_called_with("cancel_consumer", dict(queue=q.name))
 
     def test_objects(self):
-        n = Node.objects.add()
-        Node.objects.disable(n)
-        Node.objects.enable(n)
-        Node.objects.remove(n)
+        n = Instance.objects.add()
+        Instance.objects.disable(n)
+        Instance.objects.enable(n)
+        Instance.objects.remove(n)
 
     def test_with_queues(self):
-        Node.objects.add(queues="foo,bar,baz")
-        Node.objects.add_queue("foo")
-        Node.objects.add_queue("xaz")
+        Instance.objects.add(queues="foo,bar,baz")
+        Instance.objects.add_queue("foo")
+        Instance.objects.add_queue("xaz")
 
-        Node.objects.remove_queue("foo")
-        Node.objects.remove_queue("xaz")
+        Instance.objects.remove_queue("foo")
+        Instance.objects.remove_queue("xaz")

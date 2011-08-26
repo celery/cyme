@@ -68,7 +68,7 @@
             The manager for this model is :class:`~cyme.managers.QueueManager`.
 
 
-    .. autoclass:: Node
+    .. autoclass:: Instance
 
         .. attribute:: name
 
@@ -120,7 +120,7 @@
         .. attribute:: objects
 
             The manager used for this model is
-            :class:`~cyme.managers.NodeManager`.
+            :class:`~cyme.managers.InstanceManager`.
 
         .. attribute:: cwd
 

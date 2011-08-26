@@ -125,13 +125,13 @@ class App(ModelActor):
 apps = App()
 
 
-class Node(ModelActor):
-    """Actor for managing the Node model."""
-    model = models.Node
-    exchange = Exchange("cyme.Node")
+class Instance(ModelActor):
+    """Actor for managing the Instance model."""
+    model = models.Instance
+    exchange = Exchange("cyme.Instance")
     default_timeout = 60
     types = ("direct", "scatter", "round-robin")
-    meta_lookup_section = "nodes"
+    meta_lookup_section = "instances"
 
     class state:
 
@@ -139,7 +139,7 @@ class Node(ModelActor):
             fun = self.objects.all
             if app:
                 fun = partial(self.objects.filter, app=apps.get(app))
-            return [node.name for node in fun()]
+            return [instance.name for instance in fun()]
 
         def get(self, name, app=None):
             try:
@@ -150,45 +150,46 @@ class Node(ModelActor):
 
         @announce_after
         def add(self, name=None, app=None, **kwargs):
-            return self.cyme.add(name, app=apps.get(app), **kwargs).as_dict()
+            return self.local.add(name, app=apps.get(app), **kwargs).as_dict()
 
         @announce_after
         def remove(self, name, app=None):
-            return self.cyme.remove(name) and "ok"
+            return self.local.remove(name) and "ok"
 
         def restart(self, name, app=None):
-            return self.cyme.restart(name) and "ok"
+            return self.local.restart(name) and "ok"
 
         def enable(self, name, app=None):
-            return self.cyme.enable(name) and "ok"
+            return self.local.enable(name) and "ok"
 
         def disable(self, name, app=None):
-            return self.cyme.disable(name) and "ok"
+            return self.local.disable(name) and "ok"
 
         def add_consumer(self, name, queue):
-            return self.cyme.add_consumer(name, queue) and "ok"
+            return self.local.add_consumer(name, queue) and "ok"
 
         def cancel_consumer(self, name, queue):
-            return self.cyme.cancel_consumer(name, queue) and "ok"
+            return self.local.cancel_consumer(name, queue) and "ok"
 
         def remove_queue_from_all(self, queue):
-            return [node.name for node in
-                        self.objects.remove_queue_from_nodes(queue)]
+            return [instance.name for instance in
+                        self.objects.remove_queue_from_instances(queue)]
 
         def autoscale(self, name, max=None, min=None):
-            node = self.cyme.get(name)
-            node.autoscale(max=max, min=min)
-            return {"max": node.max_concurrency, "min": node.min_concurrency}
+            instance = self.local.get(name)
+            instance.autoscale(max=max, min=min)
+            return {"max": instance.max_concurrency,
+                    "min": instance.min_concurrency}
 
         def consuming_from(self, name):
-            return self.cyme.get(name).consuming_from()
+            return self.local.get(name).consuming_from()
 
         def stats(self, name):
-            return self.cyme.get(name).stats()
+            return self.local.get(name).stats()
 
         @cached_property
-        def cyme(self):
-            return find_symbol(self, ".managers.local_nodes")
+        def local(self):
+            return find_symbol(self, ".managers.local_instances")
 
     def get(self, name, app=None, **kw):
         return self.send_to_able("get",
@@ -243,8 +244,8 @@ class Node(ModelActor):
 
     @property
     def meta(self):
-        return {"nodes": self.state.all()}
-nodes = Node()
+        return {"instances": self.state.all()}
+instances = Instance()
 
 
 class Queue(ModelActor):
@@ -290,7 +291,7 @@ class Queue(ModelActor):
         return self.throw("add", dict({"name": name}, **decl), nowait=nowait)
 
     def delete(self, name, **kw):
-        nodes.remove_queue_from_all(name, nowait=True)
+        instances.remove_queue_from_all(name, nowait=True)
         return self.send_to_able("delete", {"name": name}, to=name, **kw)
 
     @property
@@ -300,7 +301,7 @@ queues = Queue()
 
 
 class Controller(ControllerBase, gThread):
-    actors = [App(), Node(), Queue()]
+    actors = [App(), Instance(), Queue()]
     connect_max_retries = celery.conf.BROKER_CONNECTION_MAX_RETRIES
     extra_shutdown_steps = 2
     _ready_sent = False
@@ -313,7 +314,7 @@ class Controller(ControllerBase, gThread):
     def on_awake(self):
         # bind global actors to this agent,
         # so presence can be used.
-        for actor in (apps, nodes, queues):
+        for actor in (apps, instances, queues):
             actor.agent = self
 
     def on_connection_revived(self):

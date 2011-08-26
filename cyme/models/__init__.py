@@ -22,7 +22,7 @@ from django.utils.translation import ugettext_lazy as _
 from . import managers
 from ..utils import cached_property, find_symbol
 
-logger = anon_logger("Node")
+logger = anon_logger("Instance")
 
 
 class Broker(models.Model):
@@ -113,14 +113,14 @@ class Queue(models.Model):
                 "options": self.options}
 
 
-class Node(models.Model):
+class Instance(models.Model):
     """A celeryd instance."""
     App = App
     Broker = Broker
     Queue = Queue
     MultiTool = MultiTool
 
-    objects = managers.NodeManager()
+    objects = managers.InstaceManager()
     mutex = Lock()
 
     app = models.ForeignKey(App)
@@ -134,8 +134,8 @@ class Node(models.Model):
     _broker = models.ForeignKey(Broker, null=True, blank=True)
 
     class Meta:
-        verbose_name = _(u"node")
-        verbose_name_plural = _(u"nodes")
+        verbose_name = _(u"instance")
+        verbose_name_plural = _(u"instances")
 
     def __unicode__(self):
         return self.name
@@ -146,10 +146,10 @@ class Node(models.Model):
             app = kwargs["app"] = self.App._default_manager.get_default()
         if not isinstance(app, self.App):
             kwargs["app"] = self.App._default_manager.get(name=app)
-        super(Node, self).__init__(*args, **kwargs)
+        super(Instance, self).__init__(*args, **kwargs)
 
     def as_dict(self):
-        """Returns a JSON serializable version of this node."""
+        """Returns a JSON serializable version of this instance."""
         return {"name": self.name,
                 "queues": self.queues,
                 "max_concurrency": self.max_concurrency,
@@ -194,7 +194,7 @@ class Node(models.Model):
         return self.responds_to_signal() and self.responds_to_ping(**kwargs)
 
     def stats(self, **kwargs):
-        """Returns node statistics (as ``celeryctl inspect stats``)."""
+        """Returns instance statistics (as ``celeryctl inspect stats``)."""
         return self._query("stats", **kwargs)
 
     def _update_autoscale(self, max=None, min=None):
@@ -372,7 +372,7 @@ class Node(models.Model):
         return self._broker
 
     def _get_queues(self):
-        node = self
+        instance = self
 
         class Queues(list):
 
@@ -398,7 +398,7 @@ class Node(models.Model):
                 return ",".join(map(mq, self))
 
             def _update_obj(self):
-                node.queues = self.as_str()
+                instance.queues = self.as_str()
 
         return Queues(q for q in (self._queues or "").split(",") if q)
 

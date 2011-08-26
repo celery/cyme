@@ -9,7 +9,7 @@ Synopsis
 ========
 
 The Cyme agent is a distributed application, where each instance
-handles the Celery worker nodes on a machine (physical or virtual).
+handles the Celery worker instances on a machine (physical or virtual).
 Distributed as in it reroutes messages to agents that can handle them,
 for example if the current agent does not hold the definition of a queue,
 it uses broadcast messaging to ask other agents for that information.
@@ -54,7 +54,7 @@ Start one or more agents::
 The default HTTP port is 8000, and the default root directory
 is :file:`instances/`.  The root directory must be writable
 by the user the agent is running as.  The logs and pid files of
-every worker node will be stored in this directory.
+every worker instance will be stored in this directory.
 
 Create a new application named ``foo``::
 
@@ -114,9 +114,9 @@ admin interface at http://localhost:8001/admin/.
 
 In the affected agents log you should now see something like this::
 
-    {582161d7-1187-4242-9874-32cd7186ba91} --> Node.add(name=None)
+    {582161d7-1187-4242-9874-32cd7186ba91} --> Instance.add(name=None)
     {Supervisor} wake-up
-    {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712 node.restart
+    {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712 instance.restart
     celeryd-multi restart --suffix="" --no-color a35f2518-13bb-4403-bbdf-dd8751077712
         -Q 'dq.a35f2518-13bb-4403-bbdf-dd8751077712'
         --workdir=agent1/
@@ -127,7 +127,7 @@ In the affected agents log you should now see something like this::
            broker.user=guest broker.password=guest broker.vhost=/
     celeryd-multi v2.3.1
     > a35f2518-13bb-4403-bbdf-dd8751077712: DOWN
-    > Restarting node a35f2518-13bb-4403-bbdf-dd8751077712: OK
+    > Restarting instance a35f2518-13bb-4403-bbdf-dd8751077712: OK
     {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712 pingWithTimeout: 0.1
     {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712 pingWithTimeout: 0.5
     {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712 pingWithTimeout: 0.9
@@ -192,7 +192,7 @@ agents::
 
     ["tasks"]
 
-Now we can make our worker node consume from the ``tasks`` queue to process
+Now we can make our worker instance consume from the ``tasks`` queue to process
 tasks sent to it::
 
     $ curl -X PUT -i \
@@ -207,7 +207,7 @@ tasks sent to it::
 In the logs for the agent that controls this instance you should now see::
 
     [2011-08-15 16:06:32,226: WARNING/MainProcess]
-        {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712: node.consume_from: tasks
+        {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712: instance.consume_from: tasks
 
 
 If the test was successful you can clean up after yourself by,
@@ -363,7 +363,7 @@ for that name.
 Queueing Tasks
 --------------
 
-Queueing an URL will result in one of the worker nodes to execute that
+Queueing an URL will result in one of the worker instances to execute that
 request as soon as possible.
 
 ::
@@ -433,14 +433,14 @@ instance::
 Autoscale
 ---------
 
-* To set the max/min concurrency settings of a node
+* To set the max/min concurrency settings of an instance
 
 ::
 
     POST http://agent:port/<app>/instance/<name>/autoscale/?max=int
                                                            ?min=int
 
-* To get the max/min concurrency settings of a node
+* To get the max/min concurrency settings of an instance
 
 ::
 
@@ -472,7 +472,7 @@ App
 ~~~
 :see: :class:`cyme.models.App`.
 
-Every node belongs to an application, and the application
+Every instance belongs to an application, and the application
 contains the default broker configuration.
 
 Broker
@@ -482,15 +482,15 @@ Broker
 The connection parameters for a specific broker (``hostname``, ``port``,
 ``userid``, ``password``, ``virtual_host``)
 
-Node
-~~~~
-:see: :class:`cyme.models.Node`.
+Instance
+~~~~~~~~
+:see: :class:`cyme.models.Instance`.
 
-This describes a Celery worker node that should be running on this
+This describes a Celery worker instnace that should be running on this
 agent, the queues it should consume from and its max/min concurrency
-settings. It also describes what broker instance the node should be
+settings. It also describes what broker instance the instance should be
 connecting to (which if not specified will default to the broker of the
-app the node belongs to).
+app the instance belongs to).
 
 Queue
 ~~~~~
@@ -506,7 +506,7 @@ Supervisor
 
 The supervisor wakes up at intervals to monitor for changes in the model.
 It can also be requested to perform specific operations, e.g.
-restart a node, add queues to node,
+restart an instance, add queues to instance,
 and these operations can be either async or sync.
 
 It is responsible for:
@@ -516,9 +516,9 @@ It is responsible for:
 * Restarting unresponsive/killed instances.
 * Making sure the instances consumes from the queues specified in the model,
   sending add_consumer/- cancel_consumer broadcast commands
-  to the nodes as it finds inconsistencies.
+  to the instances as it finds inconsistencies.
 * Making sure the max/min concurrency setting is as specified in
-  the model, sending autoscale broadcast commands to the nodes as it
+  the model, sending autoscale broadcast commands to the instances as it
   finds inconsistencies.
 
 The supervisor is resilient to intermittent connection failures,
@@ -534,7 +534,7 @@ Controller
 :see: :mod:`cyme.controller`.
 
 The controller is a series of `cl`_ actors to control applications,
-nodes and queues.  It is used by the HTTP interface, but can also
+instances and queues.  It is used by the HTTP interface, but can also
 be used directly.
 
 HTTP
