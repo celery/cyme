@@ -1,18 +1,18 @@
 """
 
-.. program:: cyme-agent
+.. program:: cyme-branch
 
-``cyme-agent``
-=============
+``cyme-branch``
+===============
 
-Starts the cyme agent service.
+Starts the cyme branch service.
 
 Options
 -------
 
 .. cmdoption:: -i, --id
 
-    Set agent id, if not provided one will be automatically generated.
+    Set branch id, if not provided one will be automatically generated.
 
 .. cmdoption:: --without-httpd
 
@@ -30,7 +30,7 @@ Options
 .. cmdoption:: -D, --instance-dir
 
     Custom instance directory (default is :file:`instances/``)
-    Must be writeable by the user cyme-agent runs as.
+    Must be writeable by the user cyme-branch runs as.
 
 .. cmdoption:: -C, --numc
 
@@ -76,23 +76,23 @@ BANNER = """
 
 
 class Command(CymeCommand):
-    agent_ready_sig = "cyme.agent.signals.agent_ready"
-    agent_cls = "cyme.agent.Agent"
-    default_detach_logfile = "agent.log"
-    default_detach_pidfile = "agent.pid"
-    name = "cyme-agent"
+    branch_ready_sig = "cyme.branch.signals.branch_ready"
+    branch_cls = "cyme.branch.Branch"
+    default_detach_logfile = "branch.log"
+    default_detach_pidfile = "branch.pid"
+    name = "cyme-branch"
     args = '[optional port number, or ipaddr:port]'
     option_list = CymeCommand.option_list + (
         Option('--broker', '-b',
             default=None, action="store", dest="broker",
-            help="""Broker URL to use for agent connection.\
+            help="""Broker URL to use for the cyme message bus.\
                     Default is amqp://guest:guest@localhost:5672//"""),
         Option('--detach',
             default=False, action="store_true", dest="detach",
             help="Detach and run in the background."),
         Option("-i", "--id",
                default=None, action="store", dest="id",
-               help="Set explicit agent id."),
+               help="Set explicit branch id."),
         Option("--without-httpd",
                default=False, action="store_true", dest="without_httpd",
                help="Disable HTTP server"),
@@ -110,7 +110,7 @@ class Command(CymeCommand):
               help="Supervisor schedule interval.  Default is every minute."),
     ) + daemon_options(default_detach_pidfile)
 
-    help = 'Starts the cyme agent'
+    help = 'Starts a cyme branch'
 
     def handle(self, *args, **kwargs):
         """Handle the management command."""
@@ -121,10 +121,10 @@ class Command(CymeCommand):
         self.install_cry_handler()
         self.install_rdb_handler()
         self.colored = colored(kwargs.get("logfile"))
-        self.agent = instantiate(self.agent_cls, *args,
+        self.branch = instantiate(self.branch_cls, *args,
                                  colored=self.colored, **kwargs)
         print(str(self.colored.cyan(self.banner())))
-        get_cls_by_name(self.agent_ready_sig).connect(self.on_agent_ready)
+        get_cls_by_name(self.branch_ready_sig).connect(self.on_branch_ready)
         self.detached = kwargs.get("detach", False)
 
         return (self._detach if self.detached else self._start)(**kwargs)
@@ -136,12 +136,12 @@ class Command(CymeCommand):
     def stop(self):
         self.set_process_title("shutdown...")
 
-    def on_agent_ready(self, sender=None, **kwargs):
+    def on_branch_ready(self, sender=None, **kwargs):
         pid = os.getpid()
         self.set_process_title("ready")
         if not self.detached and \
-                not self.agent.is_enabled_for("INFO"):
-            print("(%s) agent ready" % (pid, ))
+                not self.branch.is_enabled_for("INFO"):
+            print("(%s) branch ready" % (pid, ))
         sender.info("[READY] (%s)" % (pid, ))
 
     def _detach(self, logfile=None, pidfile=None, uid=None, gid=None,
@@ -157,24 +157,24 @@ class Command(CymeCommand):
             pidlock = create_pidlock(pidfile).acquire()
             atexit.register(pidlock.release)
         try:
-            return self.agent.start().wait()
+            return self.branch.start().wait()
         except SystemExit:
-            self.agent.stop()
+            self.branch.stop()
 
     def banner(self):
-        agent = self.agent
-        addr, port = agent.addrport
-        con = agent.controllers
+        branch = self.branch
+        addr, port = branch.addrport
+        con = branch.controllers
         try:
             pres_interval = con[0].thread.presence.interval
         except AttributeError:
             pres_interval = "(disabled)"
-        sup = agent.supervisor.thread
-        return BANNER % {"id": agent.id,
+        sup = branch.supervisor.thread
+        return BANNER % {"id": branch.id,
                          "version": self.__version__,
-                         "broker": agent.connection.as_uri(),
-                         "loglevel": self.LOG_LEVELS[agent.loglevel],
-                         "logfile": agent.logfile or "[stderr]",
+                         "broker": branch.connection.as_uri(),
+                         "loglevel": self.LOG_LEVELS[branch.loglevel],
+                         "logfile": branch.logfile or "[stderr]",
                          "addr": addr or "localhost",
                          "port": port or 8000,
                          "sup.interval": sup.interval,
@@ -191,7 +191,7 @@ class Command(CymeCommand):
             signals[signal] = raise_SystemExit
 
     def set_process_title(self, info):
-        set_process_title("%s#%s" % (self.name, shortuuid(self.agent.id)),
+        set_process_title("%s#%s" % (self.name, shortuuid(self.branch.id)),
                           "%s (-D %s)" % (info, self.instance_dir))
 
     def repr_controller_id(self, c):

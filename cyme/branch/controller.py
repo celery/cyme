@@ -1,6 +1,6 @@
-"""cyme.agent.controller
+"""cyme.branch.controller
 
-- Actors used to manage entities across all agents.
+- Actors used to manage entities across all branches.
 
 """
 
@@ -36,8 +36,8 @@ class ModelActor(Actor, AwareActorMixin):
             connection = celery.broker_connection()
         Actor.__init__(self, connection, *args, **kwargs)
 
-        # retry publishing messages by default if running as cyme-agent.
-        self.retry = state.is_agent
+        # retry publishing messages by default if running as cyme-branch.
+        self.retry = state.is_branch
         self.default_fields = {"actor_id": self.id}
 
     def on_agent_ready(self):

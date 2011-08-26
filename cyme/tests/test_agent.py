@@ -1,11 +1,11 @@
 from celery.tests.utils import unittest
 from mock import Mock
 
-from cyme.agent import Agent
+from cyme.branch import Branch
 from cyme.thread import gThread
 
 
-class test_Agent(unittest.TestCase):
+class test_Branch(unittest.TestCase):
 
     def setUp(self):
         self._gstart, gThread.start = gThread.start, Mock()
@@ -14,11 +14,11 @@ class test_Agent(unittest.TestCase):
         gThread.start = self._gstart
 
     def test_run(self):
-        agent = Agent()
-        self.assertTrue(agent.id)
-        self.assertTrue(agent.components)
-        agent2 = Agent(without_httpd=True, without_amqp=True)
-        self.assertNotEqual(len(agent2.components), len(agent.components))
-        agent.run()
-        for component in agent.components:
+        branch = Branch()
+        self.assertTrue(branch.id)
+        self.assertTrue(branch.components)
+        branch2 = Branch(without_httpd=True, without_amqp=True)
+        self.assertNotEqual(len(branch2.components), len(branch.components))
+        branch.run()
+        for component in branch.components:
             component.start.assert_called_with()

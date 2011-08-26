@@ -10,24 +10,24 @@
 
     cyme.client
     cyme.client.base
-    cyme.agent
-    cyme.agent.controller
-    cyme.agent.managers
-    cyme.agent.supervisor
-    cyme.agent.httpd
-    cyme.agent.signals
-    cyme.agent.state
-    cyme.agent.metrics
-    cyme.agent.thread
-    cyme.agent.intsup
+    cyme.branch
+    cyme.branch.controller
+    cyme.branch.managers
+    cyme.branch.supervisor
+    cyme.branch.httpd
+    cyme.branch.signals
+    cyme.branch.state
+    cyme.branch.metrics
+    cyme.branch.thread
+    cyme.branch.intsup
     cyme.api.views
     cyme.api.web
     cyme.models
     cyme.models.managers
     cyme.tasks
     cyme.management.commands.cyme
-    cyme.management.commands.cyme_agent
+    cyme.management.commands.cyme_branch
     cyme.bin.base
     cyme.bin.cyme
-    cyme.bin.cyme_agent
+    cyme.bin.cyme_branch
     cyme.utils

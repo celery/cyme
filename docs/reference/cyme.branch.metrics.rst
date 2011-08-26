@@ -1,11 +1,11 @@
 ========================
- cyme.agent.intsup
+ cyme.branch.metrics
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: cyme.agent.intsup
+.. currentmodule:: cyme.branch.metrics
 
-.. automodule:: cyme.agent.intsup
+.. automodule:: cyme.branch.metrics
     :members:
     :undoc-members:

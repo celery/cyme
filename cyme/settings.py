@@ -17,7 +17,7 @@ CELERYD_LOG_FORMAT = """\
 [%(asctime)s: %(levelname)s] %(message)s\
 """.strip()
 
-DB_NAME = os.environ.get("CYME_DB_NAME") or "agent.db"
+DB_NAME = os.environ.get("CYME_DB_NAME") or "branch.db"
 
 # Databases
 DATABASES = {'default': {

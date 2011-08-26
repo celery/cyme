@@ -26,7 +26,7 @@ Options
 .. cmdoption:: -L, --local
 
     Flag that if set means that operations will be performed
-    locally for the current agent only.
+    locally for the current branch only.
     This means the instance directory must be properly set.
 
 .. cmdoption:: -l, --loglevel
@@ -230,7 +230,7 @@ class LocalI(I):
 
     def __init__(self, *args, **kwargs):
         super(LocalI, self).__init__(*args, **kwargs)
-        from cyme.agent.controller import apps, instances, queues
+        from cyme.branch.controller import apps, instances, queues
         self.get_app = apps.get
         self.apps = apps.state
         self.instances = instances.state
@@ -337,7 +337,7 @@ E.g.:
               help="Output format: pretty (default) or json"),
        Option("-L", "--local",
               default=False, action="store_true", dest="local",
-              help="Perform operations locally for this agent only."),
+              help="Perform operations locally for this branch only."),
        Option('-l', '--loglevel',
               default="WARNING", action="store", dest="loglevel",
               help="Choose between DEBUG/INFO/WARNING/ERROR/CRITICAL"),

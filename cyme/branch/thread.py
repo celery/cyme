@@ -1,4 +1,4 @@
-"""cyme.agent.thread
+"""cyme.branch.thread
 
 - Utilities for working with greenlets.
 

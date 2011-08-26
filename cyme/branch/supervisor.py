@@ -1,4 +1,4 @@
-"""cyme.agent.supervisor"""
+"""cyme.branch.supervisor"""
 
 from __future__ import absolute_import, with_statement
 

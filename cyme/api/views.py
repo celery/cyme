@@ -9,7 +9,7 @@ from celery.result import AsyncResult
 from cl.pools import producers
 
 from . import web
-from ..agent.controller import apps, instances, queues
+from ..branch.controller import apps, instances, queues
 from ..tasks import webhook
 from ..utils import uuid
 

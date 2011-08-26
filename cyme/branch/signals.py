@@ -1,4 +1,4 @@
-"""cyme.agent.signals"""
+"""cyme.branch.signals"""
 
 from __future__ import absolute_import
 
@@ -25,11 +25,11 @@ supervisor_ready = Signal()
 #:     :sender: is the :class:`~cyme.controller.Controller` instance.
 controller_ready = Signal()
 
-#: Sent when the agent and all its components are ready to serve.
+#: Sent when the branch and all its components are ready to serve.
 #:
 #: Arguments:
-#:     :sender: is the :class:`~cyme.agent.Agent` instance.
-agent_ready = Signal()
+#:     :sender: is the :class:`~cyme.branch.Branch` instance.
+branch_ready = Signal()
 
 
 thread_pre_shutdown = Signal()

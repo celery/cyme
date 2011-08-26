@@ -1,4 +1,4 @@
-"""cyme.agent.metrics"""
+"""cyme.branch.metrics"""
 
 from __future__ import absolute_import
 

@@ -120,7 +120,7 @@ class Instance(models.Model):
     Queue = Queue
     MultiTool = MultiTool
 
-    objects = managers.InstaceManager()
+    objects = managers.InstanceManager()
     mutex = Lock()
 
     app = models.ForeignKey(App)
@@ -249,7 +249,7 @@ class Instance(models.Model):
         if isinstance(q, self.Queue):
             q = q.as_dict()
         else:
-            queues = find_symbol(self, "..agent.controller.queues")
+            queues = find_symbol(self, "..branch.controller.queues")
             try:
                 q = queues.get(q)
             except queues.NoRouteError:

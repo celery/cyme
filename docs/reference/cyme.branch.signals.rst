@@ -1,11 +1,11 @@
 ========================
- cyme.agent.signals
+ cyme.branch.signals
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: cyme.agent.signals
+.. currentmodule:: cyme.branch.signals
 
-.. automodule:: cyme.agent.signals
+.. automodule:: cyme.branch.signals
     :members:
     :undoc-members:

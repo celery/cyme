@@ -54,8 +54,7 @@
 
         .. attribute:: is_enabled
 
-            This flag can be used to disable this queue for all instances
-            controlled by this agent.
+            Not in use.
 
         .. attribute:: created_at
 

@@ -1,11 +1,11 @@
 ========================
- cyme.agent.metrics
+ cyme.branch.thread
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: cyme.agent.metrics
+.. currentmodule:: cyme.branch.thread
 
-.. automodule:: cyme.agent.metrics
+.. automodule:: cyme.branch.thread
     :members:
     :undoc-members:

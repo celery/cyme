@@ -1,6 +1,6 @@
-"""cyme.agent.state
+"""cyme.branch.state
 
-- Global agent state.
+- Global branch state.
 
 - Used to keep track lost connections and so on, which is used by the
   supervisor to know if an instance is actually down, or if it is just the
@@ -18,8 +18,8 @@ from ..utils import cached_property, find_symbol
 class State(object):
     broker_last_revived = None
 
-    #: set to true if the process is an cyme-agent
-    is_agent = False
+    #: set to true if the process is a cyme-branch
+    is_branch = False
 
     def on_broker_revive(self, *args, **kwargs):
         self.broker_last_revived = time()

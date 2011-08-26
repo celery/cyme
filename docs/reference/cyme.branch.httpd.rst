@@ -1,11 +1,11 @@
 ========================
- cyme.agent.httpd
+ cyme.branch.httpd
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: cyme.agent.httpd
+.. currentmodule:: cyme.branch.httpd
 
-.. automodule:: cyme.agent.httpd
+.. automodule:: cyme.branch.httpd
     :members:
     :undoc-members:

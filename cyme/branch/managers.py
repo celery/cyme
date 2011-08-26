@@ -1,8 +1,8 @@
-"""cyme.agent.managers
+"""cyme.branch.managers
 
 - Contains the :class:`LocalInstanceManager` instance,
   which is the preferred API used to control and manage worker
-  instances handled by this agent.  I.e. it can be used to do synchronous
+  instances handled by this branch.  I.e. it can be used to do synchronous
   actions that don't return until the supervisor has performed them.
 
 """

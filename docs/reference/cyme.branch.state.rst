@@ -1,11 +1,11 @@
 ========================
- cyme.agent.managers
+ cyme.branch.state
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: cyme.agent.managers
+.. currentmodule:: cyme.branch.state
 
-.. automodule:: cyme.agent.managers
+.. automodule:: cyme.branch.state
     :members:
     :undoc-members:

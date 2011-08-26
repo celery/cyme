@@ -1,6 +1,6 @@
-"""cyme.agent
+"""cyme.branch
 
-- This is the Agent thread started by the :program:`cyme-agent` program.
+- This is the Branch thread started by the :program:`cyme-branch` program.
 
   It starts the HTTP server, the Supervisor, and one or more controllers.
 
@@ -23,7 +23,7 @@ from .thread import gThread
 from ..utils import instantiate, LazyProgressBar
 
 
-class Agent(gThread):
+class Branch(gThread):
     controller_cls = ".controller.Controller"
     httpd_cls = ".httpd.HttpServer"
     supervisor_cls = ".supervisor.Supervisor"
@@ -71,7 +71,7 @@ class Agent(gThread):
             if hasattr(controller.thread, "presence"):
                 self._components_ready[controller.thread.presence] = False
         self._components_shutdown = dict(self._components_ready)
-        super(Agent, self).__init__()
+        super(Branch, self).__init__()
 
     def _component_ready(self, sender=None, **kwargs):
         if not self._ready:
@@ -82,7 +82,7 @@ class Agent(gThread):
                 if self.ready_event:
                     self.ready_event.send()
                     self.ready_event = None
-                signals.agent_ready.send(sender=self)
+                signals.branch_ready.send(sender=self)
                 self._ready = True
 
     def on_ready(self, **kwargs):
@@ -93,10 +93,10 @@ class Agent(gThread):
         signals.httpd_ready.connect(self._component_ready)
         signals.supervisor_ready.connect(self._component_ready)
         signals.presence_ready.connect(self._component_ready)
-        signals.agent_ready.connect(self.on_ready)
+        signals.branch_ready.connect(self.on_ready)
 
     def run(self):
-        state.is_agent = True
+        state.is_branch = True
         self.setup_startup_progress()
         self.setup_shutdown_progress()
         self.prepare_signals()
@@ -106,7 +106,7 @@ class Agent(gThread):
 
     def stop(self):
         self.exit_request.send(1)
-        super(Agent, self).stop()
+        super(Branch, self).stop()
 
     def after(self):
         for component in reversed(self.components):
@@ -150,7 +150,7 @@ class Agent(gThread):
         osigs = (signals.httpd_ready,
                  signals.supervisor_ready,
                  signals.controller_ready,
-                 signals.agent_ready)
+                 signals.branch_ready)
 
         estimate = (len(tsigs) + ((len(self.components) + 10) * 2)
                      + len(osigs))

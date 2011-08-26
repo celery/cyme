@@ -1,11 +1,11 @@
 ========================
- cyme.agent.controller
+ cyme.branch
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: cyme.agent.controller
+.. currentmodule:: cyme.branch
 
-.. automodule:: cyme.agent.controller
+.. automodule:: cyme.branch
     :members:
     :undoc-members:

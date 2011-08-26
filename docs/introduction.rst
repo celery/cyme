@@ -8,11 +8,9 @@
 Synopsis
 ========
 
-The Cyme agent is a distributed application, where each instance
-handles the Celery worker instances on a machine (physical or virtual).
-Distributed as in it reroutes messages to agents that can handle them,
-for example if the current agent does not hold the definition of a queue,
-it uses broadcast messaging to ask other agents for that information.
+Cyme is a distributed application to manage a cluster of Celery worker
+instances.  Every machine (physical or virtual) runs the ``cyme-branch``
+service.
 
 Requirements
 ============
@@ -39,22 +37,23 @@ Requirements
 Getting started
 ===============
 
-You can run as many agents as needed: one or multiple.
-It is also possible to run multiple agents on the same machine
+You can run as many branches as needed: one or multiple.
+It is also possible to run multiple branches on the same machine
 by specifying a custom HTTP port, and root directory for each
-agent.
+branch.
 
-Start one or more agents::
+Start one or more branches::
 
-    $ cyme-agent :8001 -i agent1 -D agent1/
+    $ cyme-branch :8001 -i branch1 -D cyme/branch1/
 
-    $ cyme-agent :8002 -i agent2 -D agent2/
+    $ cyme-branch :8002 -i branch2 -D cyme/branch2/
 
 
 The default HTTP port is 8000, and the default root directory
 is :file:`instances/`.  The root directory must be writable
-by the user the agent is running as.  The logs and pid files of
-every worker instance will be stored in this directory.
+by the user the ``cyme-branch`` application is running as.
+The logs and pid files of every worker instance will be
+stored in this directory.
 
 Create a new application named ``foo``::
 
@@ -107,24 +106,23 @@ Create a new Celery worker instance::
      "max_concurrency": 1,
      "min_concurrency": 1}
 
-Note that this instance is created on a random agent, not necessarily the
-agent that you are currently speaking to over HTTP.  If you want to edit
-the data on a specific agent, please do so by using that agents
-admin interface at http://localhost:8001/admin/.
+Note that this instance is created on a random branch, not necessarily the
+branch that you are currently speaking to over HTTP.  If you want to edit
+the data on a specific branch, please do so by using the
+admin interface of the branch, at http://localhost:8001/admin/.
 
-In the affected agents log you should now see something like this::
+In the logs of the affected branch you should now see something like this::
 
     {582161d7-1187-4242-9874-32cd7186ba91} --> Instance.add(name=None)
     {Supervisor} wake-up
     {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712 instance.restart
     celeryd-multi restart --suffix="" --no-color a35f2518-13bb-4403-bbdf-dd8751077712
         -Q 'dq.a35f2518-13bb-4403-bbdf-dd8751077712'
-        --workdir=agent1/
-        --pidfile=agent1/celeryd@%n.pid
-        --logfile=agent1/celeryd@%n.log
+        --workdir=cyme/branch1/
+        --pidfile=cyme/branch1/a35f2518-13bb-4403-bbdf-dd8751077712/worker.pid
+        --logfile=cyme/branch1/a35f2518-13bb-4403-bbdf-dd8751077712/worker.log
         --loglevel=DEBUG --autoscale=1,1
-        -- broker.host=127.0.0.1 broker.port=5672
-           broker.user=guest broker.password=guest broker.vhost=/
+        --broker=amqp://guest:guest@localhost:5672//
     celeryd-multi v2.3.1
     > a35f2518-13bb-4403-bbdf-dd8751077712: DOWN
     > Restarting instance a35f2518-13bb-4403-bbdf-dd8751077712: OK
@@ -156,7 +154,7 @@ Now that we have created an instance we can list the available instances::
 
     ["a35f2518-13bb-4403-bbdf-dd8751077712"]
 
-Note that this will list instances for every agent, not just the agent you are
+Note that this will list instances for every branch, not just the branch you are
 currently speaking to over HTTP.
 
 Let's create a queue declaration for a queue named ``tasks``.
@@ -180,9 +178,9 @@ Create the queue by performing the following request::
      "exchange_type": null}
 
 
-The queue declaration should now have been stored on one of the agents,
+The queue declaration should now have been stored inside one of the branches,
 and we can verify that by retrieving a list of all queues defined on all
-agents::
+branches::
 
     $ curl -X GET -i http://localhost:8001/foo/queues/
     HTTP/1.1200 OK
@@ -204,7 +202,7 @@ tasks sent to it::
 
     {"ok": "ok"}
 
-In the logs for the agent that controls this instance you should now see::
+In the logs for the branch that this is instance is a member of you should now see::
 
     [2011-08-15 16:06:32,226: WARNING/MainProcess]
         {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712: instance.consume_from: tasks
@@ -227,7 +225,7 @@ If the test was successful you can clean up after yourself by,
     $ curl -X DELETE -i http://localhost:8001/instances/a35f2518-13bb-4403-bbdf-dd8751077712/
 
 
-The worker instance should now be shutdown by the agents supervisor.
+The worker instance should now be shutdown by the branch supervisor.
 
 
 
@@ -242,11 +240,11 @@ Applications
 
 ::
 
-  [PUT|POST] http://agent:port/<name>/?hostname=str
-                                      ?port=int
-                                      ?userid=str
-                                      ?password=str
-                                      ?virtual_host=str
+  [PUT|POST] http://branch:port/<name>/?hostname=str
+                                       ?port=int
+                                       ?userid=str
+                                       ?password=str
+                                       ?virtual_host=str
 
 If ``hostname`` is not provided, then any other broker parameters
 will be ignored and the default broker will be used.
@@ -255,13 +253,13 @@ will be ignored and the default broker will be used.
 
 ::
 
-  GET http://agent:port/
+  GET http://branch:port/
 
 * Get the configuration for app by name
 
 ::
 
-  GET http://agent:port/name/
+  GET http://branch:port/name/
 
 
 Instances
@@ -271,7 +269,7 @@ Instances
 
 ::
 
-    [PUT|POST] http://agent:port/<app>/instances/
+    [PUT|POST] http://branch:port/<app>/instances/
 
 
 This will return the details of the new id,
@@ -283,27 +281,27 @@ is an UUID).
 
 ::
 
-    [PUT|POST] http://agent:port/<app>/instances/<name>/
+    [PUT|POST] http://branch:port/<app>/instances/<name>/
 
 
 * List all available instances associated with an app
 
 ::
 
-    GET http://agent:port/<app>/
+    GET http://branch:port/<app>/
 
 * Get the details of an instance by name
 
 ::
 
-    GET http://agent:port/<app>/instances/<name>/
+    GET http://branch:port/<app>/instances/<name>/
 
 
 * Delete an instance by name.
 
 ::
 
-    DELETE http://agent:port/<app>/instances/<name>/
+    DELETE http://branch:port/<app>/instances/<name>/
 
 
 Queues
@@ -313,10 +311,10 @@ Queues
 
 ::
 
-    [PUT|POST] http://agent:port/<app>/queues/<name>/?exchange=str
-                                                     ?exchange_type=str
-                                                     ?routing_key=str
-                                                     ?options=json dict
+    [PUT|POST] http://branch:port/<app>/queues/<name>/?exchange=str
+                                                      ?exchange_type=str
+                                                      ?routing_key=str
+                                                      ?options=json dict
 
 ``exchange`` and ``routing_key`` will default to the queue name if not
 provided, and ``exchange_type`` will default to ``direct``.
@@ -329,13 +327,13 @@ binding options, for a full list of supported options see
 
 ::
 
-    GET http://agent:port/<app>/queues/<name>/
+    GET http://branch:port/<app>/queues/<name>/
 
 * Get a list of available queues
 
 ::
 
-    GET http://agent:port/<app>/queues/
+    GET http://branch:port/<app>/queues/
 
 
 Consumers
@@ -350,14 +348,14 @@ for that name.
 
 ::
 
-    [PUT|POST] http://agent:port/<app>/instances/<instance>/queues/<queue>/
+    [PUT|POST] http://branch:port/<app>/instances/<instance>/queues/<queue>/
 
 
 * Tell an instance by name to stop consuming from queue by name
 
 ::
 
-    DELETE http://agent:port/<app>/instances/<instance>/queues/<queue>/
+    DELETE http://branch:port/<app>/instances/<instance>/queues/<queue>/
 
 
 Queueing Tasks
@@ -368,7 +366,7 @@ request as soon as possible.
 
 ::
 
-    [verb] http://agent:port/<app>/queue/<queue>/<url>?get_data
+    [verb] http://branch:port/<app>/queue/<queue>/<url>?get_data
     post_data
 
 
@@ -388,10 +386,10 @@ response of the actual request performed by the worker.
 
 **Examples**::
 
-    GET http://agent:port/<app>/queue/tasks/http://m/import_contacts?user=133
+    GET http://branch:port/<app>/queue/tasks/http://m/import_contacts?user=133
 
 
-    POST http://agent:port/<app>/queue/tasks/http://m/import_user
+    POST http://branch:port/<app>/queue/tasks/http://m/import_user
     username=George Costanza
     company=Vandelay Industries
 
@@ -404,21 +402,21 @@ Querying Task State
 
 ::
 
-    GET http://agent:port/<app>/query/<uuid>/state/
+    GET http://branch:port/<app>/query/<uuid>/state/
 
 
 * To get the return value of a task
 
 ::
 
-    GET http://agent:port/<app>/query/<uuid>/result/
+    GET http://branch:port/<app>/query/<uuid>/result/
 
 
 * To wait for a task to complete, and return its result.
 
 ::
 
-    GET http://agent:port/<app>/query/<uuid>/wait/
+    GET http://branch:port/<app>/query/<uuid>/wait/
 
 
 Instance details and statistics
@@ -427,7 +425,7 @@ Instance details and statistics
 To get configuration details and statistics for a particular
 instance::
 
-    GET http://agent:port/<app>/instance/<name>/stats/
+    GET http://branch:port/<app>/instance/<name>/stats/
 
 
 Autoscale
@@ -437,14 +435,14 @@ Autoscale
 
 ::
 
-    POST http://agent:port/<app>/instance/<name>/autoscale/?max=int
-                                                           ?min=int
+    POST http://branch:port/<app>/instance/<name>/autoscale/?max=int
+                                                            ?min=int
 
 * To get the max/min concurrency settings of an instance
 
 ::
 
-    GET http://agent:port/<app>/instance/<name>/autoscale/
+    GET http://branch:port/<app>/instance/<name>/autoscale/
 
 Components
 ==========
@@ -457,15 +455,15 @@ Programs
     This is the management application, speaking HTTP with the clients.
     See ``cyme --help`` for full description and command line arguments.
 
-* :mod:`cyme-agent <cyme.management.commands.cyme_agent>`.
+* :mod:`cyme-branch <cyme.management.commands.cyme_branch>`.
 
-    This runs an agent.
-    See ``cyme-agent --help`` for full description and command line arguments.
+    Creates a new branch and starts the service to manage it.
+    See ``cyme-branch --help`` for full description and command line arguments.
 
 Models
 ------
 
-The agent uses an SQLite database to store state,
+The branch manager uses an SQLite database to store state,
 but this can also be another database system (MySQL, PostgreSQL, Oracle, DB2).
 
 App
@@ -486,9 +484,9 @@ Instance
 ~~~~~~~~
 :see: :class:`cyme.models.Instance`.
 
-This describes a Celery worker instnace that should be running on this
-agent, the queues it should consume from and its max/min concurrency
-settings. It also describes what broker instance the instance should be
+This describes a Celery worker instance that is a member of this branch.
+And also the queues it should consume from and its max/min concurrency
+settings. It also describes what broker the instance should be
 connecting to (which if not specified will default to the broker of the
 app the instance belongs to).
 

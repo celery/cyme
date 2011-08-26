@@ -1,11 +1,11 @@
 ========================
- cyme.bin.cyme_agent
+ cyme.branch.intsup
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: cyme.bin.cyme_agent
+.. currentmodule:: cyme.branch.intsup
 
-.. automodule:: cyme.bin.cyme_agent
+.. automodule:: cyme.branch.intsup
     :members:
     :undoc-members:
