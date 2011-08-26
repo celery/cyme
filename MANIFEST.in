@@ -6,7 +6,7 @@ include README
 include README.rst
 include TODO
 include setup.cfg
-recursive-include scs *.py
+recursive-include cyme *.py
 recursive-include docs *
 recursive-include tests *
 recursive-include funtests *.py
@@ -15,7 +15,7 @@ include funtests/setup.py
 include funtests/setup.cfg
 prune *.db
 prune tests/*.pyc
-prune scs/*.pyc
+prune cyme/*.pyc
 prune docs/.build
 prune funtests/suite/instances/*
 prune docs/.build

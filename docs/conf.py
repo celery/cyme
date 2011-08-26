@@ -13,7 +13,7 @@ sys.path.append(os.path.join(this, "_ext"))
 from django.core.management import setup_environ
 import settings
 setup_environ(settings)
-import scs
+import cyme
 
 
 # use app loader
@@ -44,7 +44,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'SCS'
+project = u'Cyme'
 copyright = u'2011, VMware, Inc.'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -52,9 +52,9 @@ copyright = u'2011, VMware, Inc.'
 # built documents.
 #
 # The short X.Y version.
-version = ".".join(map(str, scs.VERSION[0:2]))
+version = ".".join(map(str, cyme.VERSION[0:2]))
 # The full version, including alpha/beta/rc tags.
-release = scs.__version__
+release = cyme.__version__
 
 exclude_trees = ['.build']
 
@@ -78,7 +78,7 @@ html_use_modindex = True
 html_use_index = True
 
 latex_documents = [
-  ('index', 'SCS.tex', ur'SCS Documentation',
+  ('index', 'cyme.tex', ur'Cyme Documentation',
    ur'VMWare, Inc.', 'manual'),
 ]
 

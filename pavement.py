@@ -29,7 +29,7 @@ def html(options):
 
 @task
 def autodoc(options):
-    sh("contrib/release/doc4allmods scs")
+    sh("contrib/release/doc4allmods cyme")
 
 @task
 @needs("paver.doctools.html")
@@ -71,7 +71,7 @@ def upload_docs(options):
 def flake8(options):
     noerror = getattr(options, "noerror", False)
     complexity = getattr(options, "complexity", 22)
-    sh("""flake8 scs | perl -mstrict -mwarnings -nle'
+    sh("""flake8 cyme | perl -mstrict -mwarnings -nle'
         my $ignore = m/too complex \((\d+)\)/ && $1 le %s;
         if (! $ignore) { print STDERR; our $FOUND_FLAKE = 1 }
     }{exit $FOUND_FLAKE;

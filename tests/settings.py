@@ -19,11 +19,11 @@ ADMINS = (
 
 TEST_RUNNER = "django_nose.run_tests"
 here = os.path.abspath(os.path.dirname(__file__))
-COVERAGE_EXCLUDE_MODULES = ("scs.tests.*", )
+COVERAGE_EXCLUDE_MODULES = ("cyme.tests.*", )
 
-NOSE_ARGS = [os.path.join(here, os.pardir, "scs", "tests"),
+NOSE_ARGS = [os.path.join(here, os.pardir, "cyme", "tests"),
             os.environ.get("NOSE_VERBOSE") and "--verbose" or "",
-            "--cover3-package=scs",
+            "--cover3-package=cyme",
             "--cover3-branch",
             "--cover3-exclude=%s" % ",".join(COVERAGE_EXCLUDE_MODULES)]
 
@@ -36,18 +36,18 @@ BROKER_PASSWORD = "guest"
 TT_HOST = "localhost"
 TT_PORT = 1978
 
-CELERY_DEFAULT_EXCHANGE = "testscs"
-CELERY_DEFAULT_ROUTING_KEY = "testscs"
-CELERY_DEFAULT_QUEUE = "testscs"
+CELERY_DEFAULT_EXCHANGE = "test.cyme"
+CELERY_DEFAULT_ROUTING_KEY = "test.cyme"
+CELERY_DEFAULT_QUEUE = "test.cyme"
 
-CELERY_QUEUES = {"testscs": {"binding_key": "testscs"}}
+CELERY_QUEUES = {"test.cyme": {"binding_key": "test.cyme"}}
 
 MANAGERS = ADMINS
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": "scs-test.db",
+        "NAME": "cyme-test.db",
     },
 }
 
@@ -57,7 +57,8 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.sites',
     'django_nose',
-    'scs',
+    'cyme',
+    'cyme.api',
 )
 
 CELERY_SEND_TASK_ERROR_EMAILS = False

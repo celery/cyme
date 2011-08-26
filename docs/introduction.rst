@@ -8,7 +8,7 @@
 Synopsis
 ========
 
-The SCS agent is a distributed application, where each instance
+The Cyme agent is a distributed application, where each instance
 handles the Celery worker nodes on a machine (physical or virtual).
 Distributed as in it reroutes messages to agents that can handle them,
 for example if the current agent does not hold the definition of a queue,
@@ -32,7 +32,7 @@ Requirements
 .. note::
 
     An updated list of requirements can always be found
-    in the :file:`requirements/` directory of the SCS distribution.
+    in the :file:`requirements/` directory of the Cyme distribution.
     This directory contains pip requirements files for different
     scenarios.
 
@@ -46,19 +46,13 @@ agent.
 
 Start one or more agents::
 
-    $ sudo mkdir -p /var/run/scs
-    $ sudo chown $(whoami) /var/run/scs
-    $ sudo chmod 755 /var/run/scs
+    $ cyme-agent :8001 -i agent1 -D agent1/
 
-    $ sudo mkdir -p /var/run/scs/agent1
-    $ scs-agent :8001 -i agent1 -D /var/run/scs/agent1
-
-    $ sudo mkdir -p /var/run/scs/agent1
-    $ scs-agent :8002 -i agent2 -D /var/run/scs/agent2
+    $ cyme-agent :8002 -i agent2 -D agent2/
 
 
 The default HTTP port is 8000, and the default root directory
-is :file:`/var/run/scs/`.  The root directory must be writable
+is :file:`instances/`.  The root directory must be writable
 by the user the agent is running as.  The logs and pid files of
 every worker node will be stored in this directory.
 
@@ -125,9 +119,9 @@ In the affected agents log you should now see something like this::
     {Supervisor} a35f2518-13bb-4403-bbdf-dd8751077712 node.restart
     celeryd-multi restart --suffix="" --no-color a35f2518-13bb-4403-bbdf-dd8751077712
         -Q 'dq.a35f2518-13bb-4403-bbdf-dd8751077712'
-        --workdir=/var/run/scs/agent1
-        --pidfile=/var/run/scs/agent1/celeryd@%n.pid
-        --logfile=/var/run/scs/agent1/celeryd@%n.log
+        --workdir=agent1/
+        --pidfile=agent1/celeryd@%n.pid
+        --logfile=agent1/celeryd@%n.log
         --loglevel=DEBUG --autoscale=1,1
         -- broker.host=127.0.0.1 broker.port=5672
            broker.user=guest broker.password=guest broker.vhost=/
@@ -458,13 +452,15 @@ Components
 Programs
 --------
 
-* :mod:`scs-agent <scs.management.commands.scs_agent>`.
+* :mod:`cyme <cyme.management.commands.cyme`.
+
+    This is the management application, speaking HTTP with the clients.
+    See ``cyme --help`` for full description and command line arguments.
+
+* :mod:`cyme-agent <cyme.management.commands.cyme_agent>`.
 
     This runs an agent.
-
-* :mod:`scssh <scs.apps.sssh>`
-
-    This launches a Python REPL into the SCS environment.
+    See ``cyme-agent --help`` for full description and command line arguments.
 
 Models
 ------
@@ -474,21 +470,21 @@ but this can also be another database system (MySQL, PostgreSQL, Oracle, DB2).
 
 App
 ~~~
-:see: :class:`scs.models.App`.
+:see: :class:`cyme.models.App`.
 
 Every node belongs to an application, and the application
 contains the default broker configuration.
 
 Broker
 ~~~~~~
-:see: :class:`scs.models.Broker`.
+:see: :class:`cyme.models.Broker`.
 
 The connection parameters for a specific broker (``hostname``, ``port``,
 ``userid``, ``password``, ``virtual_host``)
 
 Node
 ~~~~
-:see: :class:`scs.models.Node`.
+:see: :class:`cyme.models.Node`.
 
 This describes a Celery worker node that should be running on this
 agent, the queues it should consume from and its max/min concurrency
@@ -498,7 +494,7 @@ app the node belongs to).
 
 Queue
 ~~~~~
-:see: :class:`scs.models.Queue`.
+:see: :class:`cyme.models.Queue`.
 
 A queue declaration: name, exchange, exchange type, routing key,
 and options.  Options is a json encoded mapping of queue, exchange and binding
@@ -506,7 +502,7 @@ options supported by :func:`kombu.compat.entry_to_queue`.
 
 Supervisor
 ==========
-:see: :mod:`scs.supervisor`.
+:see: :mod:`cyme.supervisor`.
 
 The supervisor wakes up at intervals to monitor for changes in the model.
 It can also be requested to perform specific operations, e.g.
@@ -535,7 +531,7 @@ until the instance has had a chance to reconnect
 
 Controller
 ==========
-:see: :mod:`scs.controller`.
+:see: :mod:`cyme.controller`.
 
 The controller is a series of `cl`_ actors to control applications,
 nodes and queues.  It is used by the HTTP interface, but can also

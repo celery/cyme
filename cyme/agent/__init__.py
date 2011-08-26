@@ -1,0 +1,160 @@
+"""cyme.agent
+
+- This is the Agent thread started by the :program:`cyme-agent` program.
+
+  It starts the HTTP server, the Supervisor, and one or more controllers.
+
+"""
+
+from __future__ import absolute_import
+
+import logging
+
+from celery import current_app as celery
+from celery.utils import term
+from cl.g import Event
+from kombu.utils import gen_unique_id
+
+from . import signals
+from .intsup import gSup
+from .state import state
+from .thread import gThread
+
+from ..utils import instantiate, LazyProgressBar
+
+
+class Agent(gThread):
+    controller_cls = ".controller.Controller"
+    httpd_cls = ".httpd.HttpServer"
+    supervisor_cls = ".supervisor.Supervisor"
+    httpd = None
+    controller = None
+
+    _components_ready = {}
+    _components_shutdown = {}
+    _presence_ready = 0
+    _ready = False
+    _startup_pbar = None
+    _shutdown_pbar = None
+
+    def __init__(self, addrport="", id=None, loglevel=logging.INFO,
+            logfile=None, without_httpd=False, numc=2, sup_interval=None,
+            ready_event=None, colored=None, **kwargs):
+        self.id = id or gen_unique_id()
+        if isinstance(addrport, basestring):
+            addr, _, port = addrport.partition(":")
+            addrport = (addr, int(port) if port else 8000)
+        self.addrport = addrport
+        self.connection = celery.broker_connection()
+        self.without_httpd = without_httpd
+        self.logfile = logfile
+        self.loglevel = loglevel
+        self.numc = numc
+        self.ready_event = ready_event
+        self.exit_request = Event()
+        self.colored = colored or term.colored(enabled=False)
+        if not self.without_httpd:
+            self.httpd = gSup(instantiate(self, self.httpd_cls, addrport),
+                              signals.httpd_ready)
+        self.supervisor = gSup(instantiate(self, self.supervisor_cls,
+                                sup_interval), signals.supervisor_ready)
+        self.controllers = [gSup(instantiate(self, self.controller_cls,
+                                   id="%s.%s" % (self.id, i),
+                                   connection=self.connection),
+                                 signals.controller_ready)
+                                for i in xrange(1, numc + 1)]
+        c = [self.supervisor] + self.controllers + [self.httpd]
+        c = self.components = list(filter(None, c))
+        self._components_ready = dict(zip([z.thread for z in c],
+                                          [False] * len(c)))
+        for controller in self.controllers:
+            if hasattr(controller.thread, "presence"):
+                self._components_ready[controller.thread.presence] = False
+        self._components_shutdown = dict(self._components_ready)
+        super(Agent, self).__init__()
+
+    def _component_ready(self, sender=None, **kwargs):
+        if not self._ready:
+            self._components_ready[sender] = True
+            if all(self._components_ready.values()):
+                if self._startup_pbar:
+                    self._startup_pbar.finish()
+                if self.ready_event:
+                    self.ready_event.send()
+                    self.ready_event = None
+                signals.agent_ready.send(sender=self)
+                self._ready = True
+
+    def on_ready(self, **kwargs):
+        pass
+
+    def prepare_signals(self):
+        signals.controller_ready.connect(self._component_ready)
+        signals.httpd_ready.connect(self._component_ready)
+        signals.supervisor_ready.connect(self._component_ready)
+        signals.presence_ready.connect(self._component_ready)
+        signals.agent_ready.connect(self.on_ready)
+
+    def run(self):
+        state.is_agent = True
+        self.setup_startup_progress()
+        self.setup_shutdown_progress()
+        self.prepare_signals()
+        self.info("Starting with id %r", self.id)
+        [g.start() for g in self.components]
+        self.exit_request.wait()
+
+    def stop(self):
+        self.exit_request.send(1)
+        super(Agent, self).stop()
+
+    def after(self):
+        for component in reversed(self.components):
+            if self._components_ready[component.thread]:
+                try:
+                    component.stop()
+                except KeyboardInterrupt:
+                    pass
+                except BaseException, exc:
+                    component.error("Error in shutdown: %r", exc)
+
+    def _component_shutdown(self, sender, **kwargs):
+        self._components_shutdown[sender] = True
+        if all(self._components_shutdown.values()):
+            if self._shutdown_pbar:
+                self._shutdown_pbar.finish()
+
+    def setup_shutdown_progress(self):
+        if self.is_enabled_for("DEBUG"):
+            return
+        c = self.colored
+        sigs = (signals.thread_pre_shutdown,
+                signals.thread_pre_join,
+                signals.thread_post_join,
+                signals.thread_post_shutdown)
+        estimate = (len(sigs) * ((len(self.components) + 1) * 2)
+                    + sum(c.thread.extra_shutdown_steps
+                            for c in self.components))
+        text = c.white("Shutdown...").embed()
+        p = self._shutdown_pbar = LazyProgressBar(estimate, text,
+                                                  c.reset().embed())
+        [sig.connect(p.step) for sig in sigs]
+        signals.thread_post_shutdown.connect(self._component_shutdown)
+
+    def setup_startup_progress(self):
+        if self.is_enabled_for("INFO"):
+            return
+        c = self.colored
+        tsigs = (signals.thread_pre_start,
+                 signals.thread_post_start)
+        osigs = (signals.httpd_ready,
+                 signals.supervisor_ready,
+                 signals.controller_ready,
+                 signals.agent_ready)
+
+        estimate = (len(tsigs) + ((len(self.components) + 10) * 2)
+                     + len(osigs))
+        text = c.white("Startup...").embed()
+        p = self._startup_pbar = LazyProgressBar(estimate, text,
+                                                 c.reset().embed())
+        [sig.connect(p.step) for sig in tsigs + osigs]

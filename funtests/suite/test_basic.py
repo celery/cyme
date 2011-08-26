@@ -5,27 +5,27 @@ import sys
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), os.pardir))
 
-from scs.bin.base import app, Env
-from scs.utils import cached_property, Path, uuid
+from cyme.bin.base import app, Env
+from cyme.utils import cached_property, Path, uuid
 from eventlet.event import Event
 from nose import SkipTest
 
 from .utils import unittest
 
-SCS_PORT = int(os.environ.get("SCS_PORT") or 8013)
-SCS_URL = "http://127.0.0.1:%s" % (SCS_PORT, )
-SCS_INSTANCE_DIR = Path("instances").absolute()
+CYME_PORT = int(os.environ.get("CYME_PORT") or 8013)
+CYME_URL = "http://127.0.0.1:%s" % (CYME_PORT, )
+CYME_INSTANCE_DIR = Path("instances").absolute()
 
 _agent = [None]
 
 
-@app(needs_eventlet=True, instance_dir=SCS_INSTANCE_DIR)
+@app(needs_eventlet=True, instance_dir=CYME_INSTANCE_DIR)
 def start_agent(env, argv=None):
     env.syncdb(interactive=False)
-    from scs.agent import Agent
+    from cyme.agent import Agent
     ready_event = Event()
-    SCS_INSTANCE_DIR.mkdir()
-    instance = Agent("127.0.0.1:%s" % (SCS_PORT, ), numc=1,
+    CYME_INSTANCE_DIR.mkdir()
+    instance = Agent("127.0.0.1:%s" % (CYME_PORT, ), numc=1,
                     ready_event=ready_event)
     instance.start()
     ready_event.wait()
@@ -39,15 +39,15 @@ def destroy_agent(agent):
 def teardown():
     if _agent[0] is not None:
         destroy_agent(_agent[0])
-    if SCS_INSTANCE_DIR.isdir():
-        SCS_INSTANCE_DIR.rmtree()
+    if CYME_INSTANCE_DIR.isdir():
+        CYME_INSTANCE_DIR.rmtree()
 
 
 class ClientTestCase(unittest.TestCase):
 
     @cached_property
     def Client(self):
-        from scs import Client
+        from cyme import Client
         return Client
 
 
@@ -61,7 +61,7 @@ class AgentTestCase(unittest.TestCase):
 class test_create_app(AgentTestCase, ClientTestCase):
 
     def test_create(self):
-        client = self.Client(SCS_URL)
+        client = self.Client(CYME_URL)
         app = client.add(uuid())
         self.assertTrue(repr(app))
         self.assertTrue(app)
@@ -78,7 +78,7 @@ class test_basic(AgentTestCase, ClientTestCase):
 
     def setUp(self):
         AgentTestCase.setUp(self)
-        self.app = self.Client(SCS_URL).add(uuid())
+        self.app = self.Client(CYME_URL).add(uuid())
 
     def tearDown(self):
         self.app.delete()

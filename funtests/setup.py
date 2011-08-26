@@ -23,7 +23,7 @@ class no_install(install):
         import sys
         sys.stderr.write("""
 ------------------------------------------------------
-The SCS functional test suite cannot be installed.
+The Cyme functional test suite cannot be installed.
 ------------------------------------------------------
 
 
@@ -36,9 +36,9 @@ But you can execute the tests by running the command:
 
 
 setup(
-    name='scs-funtests',
+    name='cyme-funtests',
     version="DEV",
-    description="Functional test suite for SCS",
+    description="Functional test suite for Cyme",
     author="Ask Solem",
     author_email="ask@rabbitmq.com",
     url="--",

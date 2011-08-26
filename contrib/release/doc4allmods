@@ -2,12 +2,12 @@
 
 PACKAGE="$1"
 SKIP_PACKAGES="$PACKAGE tests management urls"
-SKIP_FILES="scs.admin.rst
-            scs.bin.rst
-            scs.api.rst
-            scs.api.urls.rst
-            scs.settings.rst
-            scs.conf.rst"
+SKIP_FILES="cyme.admin.rst
+            cyme.bin.rst
+            cyme.api.rst
+            cyme.api.urls.rst
+            cyme.settings.rst
+            cyme.conf.rst"
 
 modules=$(find "$PACKAGE" -name "*.py")
 

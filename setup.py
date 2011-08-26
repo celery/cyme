@@ -12,16 +12,16 @@ except ImportError:
     from setuptools import setup, Command  # noqa
 from distutils.command.install import INSTALL_SCHEMES
 
-os.environ["SCS_NO_EVAL"] = "yes"
-import scs as distmeta
-os.environ.pop("SCS_NO_EVAL", None)
-sys.modules.pop("scs", None)
+os.environ["CYME_NO_EVAL"] = "yes"
+import cyme as distmeta
+os.environ.pop("CYME_NO_EVAL", None)
+sys.modules.pop("cyme", None)
 
 packages, data_files = [], []
 root_dir = os.path.dirname(__file__)
 if root_dir != '':
     os.chdir(root_dir)
-src_dir = "scs"
+src_dir = "cyme"
 
 
 def fullsplit(path, result=None):
@@ -104,11 +104,11 @@ class CIRunTests(RunTests):
 if os.path.exists("README.rst"):
     long_description = codecs.open("README.rst", "r", "utf-8").read()
 else:
-    long_description = "See http://github.com/ask/scs"
+    long_description = "See http://github.com/ask/cyme"
 
 
 setup(
-    name='scs',
+    name='cyme',
     version=distmeta.__version__,
     description=distmeta.__doc__,
     author=distmeta.__author__,
@@ -144,8 +144,8 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     entry_points={
-        "console_scripts": ["scs-agent = scs.bin.scs_agent:scs_agent",
-                            "scs       = scs.bin.scs:scs"]
+        "console_scripts": ["cyme-agent = cyme.bin.cyme_agent:cyme_agent",
+                            "cyme       = cyme.bin.cyme:cyme"]
     },
     long_description=long_description,
 )
