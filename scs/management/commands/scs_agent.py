@@ -73,13 +73,13 @@ BANNER = """
 --- ***** -----
  -------------- http://celeryproject.org
 """
-DEFAULT_DETACH_LOGFILE = "agent.log"
-DEFAULT_DETACH_PIDFILE = "agent.pid"
 
 
 class Command(SCSCommand):
     agent_ready_sig = "scs.agent.signals.agent_ready"
     agent_cls = "scs.agent.Agent"
+    default_detach_logfile = "agent.log"
+    default_detach_pidfile = "agent.pid"
     name = "scs-agent"
     args = '[optional port number, or ipaddr:port]'
     option_list = SCSCommand.option_list + (
@@ -108,7 +108,7 @@ class Command(SCSCommand):
        Option('--sup-interval',
               default=60, action="store", type="int", dest="sup_interval",
               help="Supervisor schedule interval.  Default is every minute."),
-    ) + daemon_options(DEFAULT_DETACH_PIDFILE)
+    ) + daemon_options(default_detach_pidfile)
 
     help = 'Starts the SCS agent'
 
@@ -116,7 +116,10 @@ class Command(SCSCommand):
         """Handle the management command."""
         kwargs = self.prepare_options(**kwargs)
         self.enter_instance_dir()
-        self.syncdb()
+        self.setup_logging()
+        self.env.syncdb()
+        self.install_cry_handler()
+        self.install_rdb_handler()
         self.colored = colored(kwargs.get("logfile"))
         self.agent = instantiate(self.agent_cls, *args,
                                  colored=self.colored, **kwargs)
@@ -125,6 +128,10 @@ class Command(SCSCommand):
         self.detached = kwargs.get("detach", False)
 
         return (self._detach if self.detached else self._start)(**kwargs)
+
+    def setup_default_env(self, env):
+        env.setup_eventlet()
+        env.setup_pool_limit()
 
     def stop(self):
         self.set_process_title("shutdown...")

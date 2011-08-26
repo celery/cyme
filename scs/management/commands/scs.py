@@ -352,7 +352,7 @@ E.g.:
         args = list(args)
         self.enter_instance_dir()
         if local:
-            self.syncdb()
+            self.env.syncdb()
         if args:
             if args[0] in ("shell", "sh"):
                 return self.drop_into_shell()

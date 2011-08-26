@@ -1,11 +1,11 @@
 ========================
- scs.apps.scs_agent
+ scs.models.managers
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: scs.apps.scs_agent
+.. currentmodule:: scs.models.managers
 
-.. automodule:: scs.apps.scs_agent
+.. automodule:: scs.models.managers
     :members:
     :undoc-members:

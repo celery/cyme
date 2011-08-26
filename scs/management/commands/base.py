@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 
+import logging
 import os
 import sys
 
@@ -12,7 +13,8 @@ from django.conf import settings
 from djcelery.management.base import CeleryCommand
 
 from scs import __version__
-from scs.utils import cached_property, Path
+from scs.utils import (cached_property, setup_logging,
+                       redirect_stdouts_to_logger)
 
 
 def die(msg, exitcode=1):
@@ -32,9 +34,12 @@ class SCSCommand(CeleryCommand):
 
     def __init__(self, env=None, *args, **kwargs):
         if env is None:
-            env = instantiate("scs.apps.base.Env")
-            env.before()
+            env = instantiate("scs.bin.base.Env")
+            self.setup_default_env(env)
         self.env = env
+
+    def setup_default_env(self, env):
+        pass
 
     def get_version(self):
         return "scs v%s" % (self.__version__, )
@@ -43,13 +48,20 @@ class SCSCommand(CeleryCommand):
         self.instance_dir.mkdir(parents=True)
         self.instance_dir.chdir()
 
-    def syncdb(self):
-        from django.db.utils import DEFAULT_DB_ALIAS
-        dbconf = settings.DATABASES[DEFAULT_DB_ALIAS]
-        if dbconf["ENGINE"] == "django.db.backends.sqlite3":
-            if Path(dbconf["NAME"]).absolute().exists():
-                return
-        self.env.syncdb()
+    def install_cry_handler(self):
+        from celery.apps.worker import install_cry_handler
+        return install_cry_handler(logging.getLogger())
+
+    def install_rdb_handler(self):
+        from celery.apps.worker import install_rdb_handler
+        return install_rdb_handler(envvar="SCS_RDBSIG")
+
+    def redirect_stdouts_to_logger(self, loglevel="INFO", logfile=None,
+            redirect_level="WARNING"):
+        return redirect_stdouts_to_logger(loglevel, logfile, redirect_level)
+
+    def setup_logging(self, loglevel="WARNING", logfile=None):
+        return setup_logging(loglevel, logfile)
 
     def prepare_options(self, broker=None, loglevel=None, logfile=None,
             pidfile=None, detach=None, instance_dir=None, **kwargs):

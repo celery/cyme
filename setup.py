@@ -144,8 +144,8 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     entry_points={
-        "console_scripts": ["scs-agent = scs.apps.scs_agent:scs_agent",
-                            "scs       = scs.apps.scs:scs"]
+        "console_scripts": ["scs-agent = scs.bin.scs_agent:scs_agent",
+                            "scs       = scs.bin.scs:scs"]
     },
     long_description=long_description,
 )

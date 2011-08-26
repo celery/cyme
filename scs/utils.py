@@ -5,6 +5,7 @@ import sys
 
 from importlib import import_module
 
+from celery import current_app as celery
 from celery.utils import get_symbol_by_name
 from cl.utils.functional import promise, maybe_promise # noqa
 from kombu.utils import gen_unique_id as uuid          # noqa
@@ -72,11 +73,20 @@ def imerge_settings(a, b):
 
 
 def setup_logging(loglevel="INFO", logfile=None):
-    from celery import current_app as celery
     from celery.utils import LOG_LEVELS
     if isinstance(loglevel, basestring):
         loglevel = LOG_LEVELS[loglevel]
     return celery.log.setup_logging_subsystem(loglevel, logfile)
+
+
+def redirect_stdouts_to_logger(loglevel="INFO", logfile=None,
+        redirect_level="WARNING", stdout=False, stderr=True):
+    log = celery.log
+    handled = setup_logging(loglevel, logfile)
+    if not handled:
+        return log.redirect_stdouts_to_logger(
+                    log.get_default_logger(name="scs"),
+                    redirect_level, stdout=stdout, stderr=stderr)
 
 
 class LazyProgressBar(object):

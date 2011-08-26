@@ -1,4 +1,4 @@
-"""scs.apps.scs_agent"""
+"""scs.bin.scs_agent"""
 
 from __future__ import absolute_import
 

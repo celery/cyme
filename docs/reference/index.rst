@@ -22,11 +22,12 @@
     scs.agent.intsup
     scs.api.views
     scs.api.web
-    scs.managers
     scs.models
+    scs.models.managers
     scs.tasks
+    scs.management.commands.scs
     scs.management.commands.scs_agent
-    scs.apps.base
-    scs.apps.scs_agent
-    scs.apps.scssh
+    scs.bin.base
+    scs.bin.scs
+    scs.bin.scs_agent
     scs.utils

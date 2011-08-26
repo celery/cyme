@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), os.pardir))
 
-from scs.apps.base import app, Env
+from scs.bin.base import app, Env
 from scs.utils import cached_property, Path, uuid
 from eventlet.event import Event
 from nose import SkipTest
@@ -19,7 +19,7 @@ SCS_INSTANCE_DIR = Path("instances").absolute()
 _agent = [None]
 
 
-@app()
+@app(needs_eventlet=True, instance_dir=SCS_INSTANCE_DIR)
 def start_agent(env, argv=None):
     env.syncdb(interactive=False)
     from scs.agent import Agent

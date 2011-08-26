@@ -20,7 +20,7 @@ from .intsup import gSup
 from .state import state
 from .thread import gThread
 
-from ..utils import instantiate, setup_logging, LazyProgressBar
+from ..utils import instantiate, LazyProgressBar
 
 
 class Agent(gThread):
@@ -100,7 +100,6 @@ class Agent(gThread):
         self.setup_startup_progress()
         self.setup_shutdown_progress()
         self.prepare_signals()
-        setup_logging(self.loglevel, self.logfile)
         self.info("Starting with id %r", self.id)
         [g.start() for g in self.components]
         self.exit_request.wait()

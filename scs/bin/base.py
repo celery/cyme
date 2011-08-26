@@ -1,4 +1,4 @@
-"""scs.apps.base
+"""scs.bin.base
 
 - Utilities used by command line apps.
 
@@ -9,17 +9,28 @@ from __future__ import absolute_import, with_statement
 from .. import __version__, DEBUG, DEBUG_BLOCK, DEBUG_READERS
 
 import getpass
-import logging
 import sys
 
 from kombu.utils import cached_property
 
+from ..utils import Path
+
 
 class Env(object):
 
-    def __init__(self, needs_syncdb=True, instance_dir=None):
-        self.needs_syncdb = needs_syncdb
+    def __init__(self, needs_eventlet=False, instance_dir=None):
+        self.needs_eventlet = needs_eventlet
         self.instance_dir = instance_dir
+
+    def __enter__(self):
+        if self.needs_eventlet:
+            self.setup_eventlet()
+        self.configure()
+        self.setup_pool_limit()
+        return self
+
+    def __exit__(self, *exc_info):
+        pass
 
     def setup_eventlet(self):
         import eventlet
@@ -44,39 +55,36 @@ class Env(object):
         if self.instance_dir:
             settings.SCS_INSTANCE_DIR = self.instance_dir
 
+    def setup_pool_limit(self, **kwargs):
+        from cl import pools
+        from celery import current_app as celery
+        limit = kwargs.get("limit", celery.conf.BROKER_POOL_LIMIT)
+        pools.set_limit(limit if self.needs_eventlet else 1)
+        celery._pool = pools.connections[celery.broker_connection()]
+
     def syncdb(self, interactive=True):
+        from django.conf import settings
+        from django.db.utils import DEFAULT_DB_ALIAS
+        dbconf = settings.DATABASES[DEFAULT_DB_ALIAS]
+        if dbconf["ENGINE"] == "django.db.backends.sqlite3":
+            if Path(dbconf["NAME"]).absolute().exists():
+                return
         gp, getpass.getpass = getpass.getpass, getpass.fallback_getpass
         try:
             self.management.call_command("syncdb", interactive=interactive)
         finally:
             getpass.getpass = gp
-            self.needs_syncdb = False
 
     @cached_property
     def management(self):
         from django.core import management
         return management
 
-    def before(self):
-        self.setup_eventlet()
-        self.configure()
-
-    def setup(self):
-        if DEBUG:
-            from celery.apps.worker import install_cry_handler
-            install_cry_handler(logging.getLogger())
-        from cl import pools
-        from celery import current_app as celery
-        pools.set_limit(celery.conf.BROKER_POOL_LIMIT)
-        celery._pool = pools.connections[celery.broker_connection()]
-        return self
-
 
 class BaseApp(object):
     env = None
-
-    def __call__(self, argv=None):
-        return self.run_from_argv(argv)
+    needs_eventlet = False
+    instance_dir = None
 
     def get_version(self):
         return "scs v%s" % (__version__, )
@@ -87,14 +95,14 @@ class BaseApp(object):
             print(self.get_version())
             sys.exit(0)
         try:
-            env = self.env or Env()
-            env.before()
-            env.setup()
-            return self.run(env, argv)
+            with (self.env or
+                    Env(self.needs_eventlet, self.instance_dir)) as env:
+                return self.run(env, argv)
         except KeyboardInterrupt:
             if DEBUG:
                 raise
             raise SystemExit()
+    __call__ = run_from_argv
 
 
 def app(**attrs):

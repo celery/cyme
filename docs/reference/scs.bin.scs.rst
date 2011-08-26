@@ -1,11 +1,11 @@
 ========================
- scs.apps.base
+ scs.bin.scs
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: scs.apps.base
+.. currentmodule:: scs.bin.scs
 
-.. automodule:: scs.apps.base
+.. automodule:: scs.bin.scs
     :members:
     :undoc-members:

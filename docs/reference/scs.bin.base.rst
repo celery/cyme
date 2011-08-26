@@ -1,11 +1,11 @@
 ========================
- scs.managers
+ scs.bin.base
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: scs.managers
+.. currentmodule:: scs.bin.base
 
-.. automodule:: scs.managers
+.. automodule:: scs.bin.base
     :members:
     :undoc-members:

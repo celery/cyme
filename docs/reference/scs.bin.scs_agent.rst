@@ -1,11 +1,11 @@
 ========================
- scs.apps.scssh
+ scs.bin.scs_agent
 ========================
 
 .. contents::
     :local:
-.. currentmodule:: scs.apps.scssh
+.. currentmodule:: scs.bin.scs_agent
 
-.. automodule:: scs.apps.scssh
+.. automodule:: scs.bin.scs_agent
     :members:
     :undoc-members:
