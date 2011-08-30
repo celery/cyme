@@ -27,6 +27,7 @@ logger = anon_logger("Instance")
 
 class Broker(models.Model):
     """Broker connection arguments."""
+    # XXX I think this model can be removed now that it only contains the URL.
     objects = managers.BrokerManager()
 
     url = models.CharField(_(u"URL"), max_length=200, unique=True)
@@ -38,23 +39,25 @@ class Broker(models.Model):
         verbose_name_plural = _(u"brokers")
 
     def __unicode__(self):
-        return unicode(self.connection().as_uri())
-
-    def connection(self):
-        return celery.broker_connection(self.url)
+        return unicode(self.connection.as_uri())
 
     def as_dict(self):
-        """Returns a JSON serializable version of this brokers
-        connection parameters."""
+        """Returns this broker as a dictionary that can be Json encoded."""
         return {"url": self.url}
 
     @property
     def pool(self):
-        return connections[self.connection()]
+        """Connection pool for this connection."""
+        return connections[self.connection]
 
     @property
     def producers(self):
-        return producers[self.connection()]
+        """Producer pool for this connection."""
+        return producers[self.connection]
+
+    @cached_property
+    def connection(self):
+        return celery.broker_connection(self.url)
 
 
 class App(models.Model):
@@ -105,7 +108,8 @@ class Queue(models.Model):
         return self.name
 
     def as_dict(self):
-        """Returns a JSON serializable version of this queue."""
+        """Returns dictionary representation of this queue that can be
+        Json encoded."""
         return {"name": self.name,
                 "exchange": self.exchange,
                 "exchange_type": self.exchange_type,
@@ -149,7 +153,8 @@ class Instance(models.Model):
         super(Instance, self).__init__(*args, **kwargs)
 
     def as_dict(self):
-        """Returns a JSON serializable version of this instance."""
+        """Returns dictionary representation of this instance that
+        can be Json encoded."""
         return {"name": self.name,
                 "queues": self.queues,
                 "max_concurrency": self.max_concurrency,
@@ -159,20 +164,12 @@ class Instance(models.Model):
                 "pool": self.pool}
 
     def enable(self):
-        """Enables this instance.
-
-        The supervisor will then ensure the instance is (re)started.
-
-        """
+        """Enables this instance (model-only)."""
         self.is_enabled = True
         self.save()
 
     def disable(self):
-        """Disables this instance.
-
-        The supervisor will then ensure the instance is stopped.
-
-        """
+        """Disables this instance (model-only)."""
         self.is_enabled = False
         self.save()
 
@@ -188,13 +185,17 @@ class Instance(models.Model):
         """Restarts the instance."""
         return self._action("restart", **kwargs)
 
+    def stop_verify(self, **kwargs):
+        """Shuts down the instance, waiting until the worker exits"""
+        return self._action("stop_verify", **kwargs)
+
     def alive(self, **kwargs):
         """Returns :const:`True` if the pid responds to signals,
         and the instance responds to ping broadcasts."""
         return self.responds_to_signal() and self.responds_to_ping(**kwargs)
 
     def stats(self, **kwargs):
-        """Returns instance statistics (as ``celeryctl inspect stats``)."""
+        """Returns instance statistics (like ``celeryctl inspect stats``)."""
         return self._query("stats", **kwargs)
 
     def _update_autoscale(self, max=None, min=None):
@@ -206,7 +207,7 @@ class Instance(models.Model):
         return [self.max_concurrency, self.min_concurrency]
 
     def autoscale(self, max=None, min=None, **kwargs):
-        """Set min/max autoscale settings."""
+        """Set max/min autoscale settings."""
         self._update_autoscale(max, min)
         return self._query("autoscale", dict(max=max, min=min), **kwargs)
 
@@ -216,7 +217,7 @@ class Instance(models.Model):
         return True if self._query("ping", **kwargs) else False
 
     def responds_to_signal(self):
-        """Returns :const:`True` if the pidfile exists and the pid
+        """Returns :const:`True` if the pid file exists and the pid
         responds to signals."""
         pid = self.getpid()
         if not pid:
@@ -230,16 +231,18 @@ class Instance(models.Model):
         return True
 
     def consuming_from(self, **kwargs):
-        """Return the queues the instance is currently consuming from."""
+        """Returns the queues the instance is currently consuming from."""
         queues = self._query("active_queues", **kwargs)
         return dict((q["name"], q) for q in queues) if queues else {}
 
     def add_queue_eventually(self, q):
+        """Add queue to instance (model-only)."""
         self.queues.add(q)
         self.save()
         return self
 
     def remove_queue_eventually(self, q):
+        """Remove queue from instance (model-only)."""
         self.queues.remove(q)
         self.save()
         return self
@@ -275,9 +278,9 @@ class Instance(models.Model):
         return self._query("cancel_consumer", dict(queue=queue), **kwargs)
 
     def getpid(self):
-        """Get the process id for this instance by reading the pidfile.
+        """Get the process id for this instance by reading its pid file.
 
-        Returns :const:`None` if the pidfile does not exist.
+        Returns :const:`None` if the pid file does not exist.
 
         """
         return platforms.PIDFile(
@@ -286,7 +289,8 @@ class Instance(models.Model):
     def _action(self, action, multi="celeryd-multi"):
         """Execute :program:`celeryd-multi` command."""
         with self.mutex:
-            argv = ([multi, action, '--suffix=""', "--no-color", self.name]
+            argv = ([multi, action, "--nosplash", '--suffix=""', "--no-color"]
+                  + [self.name]
                   + list(self.default_args)
                   + self.extra_config)
             logger.info(" ".join(argv))
@@ -346,7 +350,7 @@ class Instance(models.Model):
     def default_args(self):
         return ("--broker='%s'" % (self.broker.url, ),
                 "--workdir='%s'" % (self.instance_dir, ),
-                "--pidfile='%s'" % (self.pidfile, ),
+                "--pidfile=%s" % (self.pidfile, ),
                 "--logfile='%s'" % (self.logfile, ),
                 "--queues='%s'" % (self.direct_queue, ),
                 "--statedb='%s'" % (self.statedb, ),

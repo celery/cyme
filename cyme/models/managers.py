@@ -1,6 +1,6 @@
 """cyme.managers
 
-- These are the managers for our models in :mod:`models`.
+- These are the managers for our models in :mod:`cyme.models`.
 
 - They are not to be used directly, but accessed through
   the ``objects`` attribute of a Model.

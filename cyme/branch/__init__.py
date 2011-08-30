@@ -16,26 +16,22 @@ from cl.g import Event
 from kombu.utils import gen_unique_id
 
 from . import signals
-from .intsup import gSup
 from .state import state
 from .thread import gThread
 
-from ..utils import instantiate, LazyProgressBar
+from ..utils import find_symbol, instantiate, LazyProgressBar
 
 
 class Branch(gThread):
     controller_cls = ".controller.Controller"
     httpd_cls = ".httpd.HttpServer"
     supervisor_cls = ".supervisor.Supervisor"
-    httpd = None
-    controller = None
+    intsup_cls = ".intsup.gSup"
 
     _components_ready = {}
     _components_shutdown = {}
     _presence_ready = 0
     _ready = False
-    _startup_pbar = None
-    _shutdown_pbar = None
 
     def __init__(self, addrport="", id=None, loglevel=logging.INFO,
             logfile=None, without_httpd=False, numc=2, sup_interval=None,
@@ -53,6 +49,7 @@ class Branch(gThread):
         self.ready_event = ready_event
         self.exit_request = Event()
         self.colored = colored or term.colored(enabled=False)
+        gSup = find_symbol(self, self.intsup_cls)
         if not self.without_httpd:
             self.httpd = gSup(instantiate(self, self.httpd_cls, addrport),
                               signals.httpd_ready)
@@ -77,12 +74,10 @@ class Branch(gThread):
         if not self._ready:
             self._components_ready[sender] = True
             if all(self._components_ready.values()):
-                if self._startup_pbar:
-                    self._startup_pbar.finish()
+                signals.branch_ready.send(sender=self)
                 if self.ready_event:
                     self.ready_event.send()
                     self.ready_event = None
-                signals.branch_ready.send(sender=self)
                 self._ready = True
 
     def on_ready(self, **kwargs):
@@ -94,11 +89,11 @@ class Branch(gThread):
         signals.supervisor_ready.connect(self._component_ready)
         signals.presence_ready.connect(self._component_ready)
         signals.branch_ready.connect(self.on_ready)
+        signals.thread_post_shutdown.connect(self._component_shutdown)
 
     def run(self):
         state.is_branch = True
-        self.setup_startup_progress()
-        self.setup_shutdown_progress()
+        signals.branch_startup_request.send(sender=self)
         self.prepare_signals()
         self.info("Starting with id %r", self.id)
         [g.start() for g in self.components]
@@ -121,40 +116,4 @@ class Branch(gThread):
     def _component_shutdown(self, sender, **kwargs):
         self._components_shutdown[sender] = True
         if all(self._components_shutdown.values()):
-            if self._shutdown_pbar:
-                self._shutdown_pbar.finish()
-
-    def setup_shutdown_progress(self):
-        if self.is_enabled_for("DEBUG"):
-            return
-        c = self.colored
-        sigs = (signals.thread_pre_shutdown,
-                signals.thread_pre_join,
-                signals.thread_post_join,
-                signals.thread_post_shutdown)
-        estimate = (len(sigs) * ((len(self.components) + 1) * 2)
-                    + sum(c.thread.extra_shutdown_steps
-                            for c in self.components))
-        text = c.white("Shutdown...").embed()
-        p = self._shutdown_pbar = LazyProgressBar(estimate, text,
-                                                  c.reset().embed())
-        [sig.connect(p.step) for sig in sigs]
-        signals.thread_post_shutdown.connect(self._component_shutdown)
-
-    def setup_startup_progress(self):
-        if self.is_enabled_for("INFO"):
-            return
-        c = self.colored
-        tsigs = (signals.thread_pre_start,
-                 signals.thread_post_start)
-        osigs = (signals.httpd_ready,
-                 signals.supervisor_ready,
-                 signals.controller_ready,
-                 signals.branch_ready)
-
-        estimate = (len(tsigs) + ((len(self.components) + 10) * 2)
-                     + len(osigs))
-        text = c.white("Startup...").embed()
-        p = self._startup_pbar = LazyProgressBar(estimate, text,
-                                                 c.reset().embed())
-        [sig.connect(p.step) for sig in tsigs + osigs]
+            signals.branch_shutdown_complete.send(sender=self)

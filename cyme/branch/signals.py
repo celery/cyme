@@ -31,6 +31,12 @@ controller_ready = Signal()
 #:     :sender: is the :class:`~cyme.branch.Branch` instance.
 branch_ready = Signal()
 
+branch_shutdown_complete = Signal()
+
+
+branch_startup_request = Signal()
+branch_shutdown_request = Signal()
+
 
 thread_pre_shutdown = Signal()
 thread_pre_join = Signal(providing_args=["timeout"])

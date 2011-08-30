@@ -25,7 +25,7 @@ Options
 
 .. cmdoption:: -f, --logfile
 
-    Set custom logfile path. Default is :file:`<stderr>`
+    Set custom log file path. Default is :file:`<stderr>`
 
 .. cmdoption:: -D, --instance-dir
 
@@ -49,13 +49,14 @@ from __future__ import absolute_import
 import atexit
 import os
 
+from importlib import import_module
 
 from celery.bin.base import daemon_options
 from celery.platforms import (create_pidlock, detached,
                               signals, set_process_title)
 from celery.log import colored
 from celery.utils import get_cls_by_name, instantiate
-from cl.utils import shortuuid
+from cl.utils import cached_property, shortuuid
 
 from .base import CymeCommand, Option
 
@@ -76,12 +77,12 @@ BANNER = """
 
 
 class Command(CymeCommand):
-    branch_ready_sig = "cyme.branch.signals.branch_ready"
     branch_cls = "cyme.branch.Branch"
     default_detach_logfile = "branch.log"
     default_detach_pidfile = "branch.pid"
     name = "cyme-branch"
     args = '[optional port number, or ipaddr:port]'
+    help = 'Starts a cyme branch'
     option_list = CymeCommand.option_list + (
         Option('--broker', '-b',
             default=None, action="store", dest="broker",
@@ -110,10 +111,10 @@ class Command(CymeCommand):
               help="Supervisor schedule interval.  Default is every minute."),
     ) + daemon_options(default_detach_pidfile)
 
-    help = 'Starts a cyme branch'
+    _startup_pbar = None
+    _shutdown_pbar = None
 
     def handle(self, *args, **kwargs):
-        """Handle the management command."""
         kwargs = self.prepare_options(**kwargs)
         self.enter_instance_dir()
         self.setup_logging()
@@ -123,10 +124,10 @@ class Command(CymeCommand):
         self.colored = colored(kwargs.get("logfile"))
         self.branch = instantiate(self.branch_cls, *args,
                                  colored=self.colored, **kwargs)
+        self.connect_signals()
         print(str(self.colored.cyan(self.banner())))
-        get_cls_by_name(self.branch_ready_sig).connect(self.on_branch_ready)
-        self.detached = kwargs.get("detach", False)
 
+        self.detached = kwargs.get("detach", False)
         return (self._detach if self.detached else self._start)(**kwargs)
 
     def setup_default_env(self, env):
@@ -137,12 +138,20 @@ class Command(CymeCommand):
         self.set_process_title("shutdown...")
 
     def on_branch_ready(self, sender=None, **kwargs):
+        if self._startup_pbar:
+            self._startup_pbar.finish()
+            self._startup_pbar = None
         pid = os.getpid()
         self.set_process_title("ready")
         if not self.detached and \
                 not self.branch.is_enabled_for("INFO"):
             print("(%s) branch ready" % (pid, ))
         sender.info("[READY] (%s)" % (pid, ))
+
+    def on_branch_shutdown(self, sender=None, **kwargs):
+        if self._shutdown_pbar:
+            self._shutdown_pbar.finish()
+            self._shutdown_pbar = None
 
     def _detach(self, logfile=None, pidfile=None, uid=None, gid=None,
             umask=None, working_directory=None, **kwargs):
@@ -196,3 +205,53 @@ class Command(CymeCommand):
 
     def repr_controller_id(self, c):
         return shortuuid(c) + c[-2:]
+
+    def connect_signals(self):
+        sigs = self.signals
+        sigmap = {sigs.branch_startup_request: (self.setup_startup_progress,
+                                                self.setup_shutdown_progress),
+                  sigs.branch_ready: (self.on_branch_ready, ),
+                  sigs.branch_shutdown_complete: (self.on_branch_shutdown, )}
+        for sig, handlers in sigmap.iteritems():
+            for handler in handlers:
+                sig.connect(handler, sender=self.branch)
+
+    def setup_shutdown_progress(self, sender=None, **kwargs):
+        from cyme.utils import LazyProgressBar
+        if sender.is_enabled_for("DEBUG"):
+            return
+        c = self.colored
+        sigs = (self.signals.thread_pre_shutdown,
+                self.signals.thread_pre_join,
+                self.signals.thread_post_join,
+                self.signals.thread_post_shutdown)
+        estimate = (len(sigs) * ((len(sender.components) + 1) * 2)
+                    + sum(c.thread.extra_shutdown_steps
+                            for c in sender.components))
+        text = c.white("Shutdown...").embed()
+        p = self._shutdown_pbar = LazyProgressBar(estimate, text,
+                                                  c.reset().embed())
+        [sig.connect(p.step) for sig in sigs]
+
+    def setup_startup_progress(self, sender=None, **kwargs):
+        from cyme.utils import LazyProgressBar
+        if sender.is_enabled_for("INFO"):
+            return
+        c = self.colored
+        tsigs = (self.signals.thread_pre_start,
+                 self.signals.thread_post_start)
+        osigs = (self.signals.httpd_ready,
+                 self.signals.supervisor_ready,
+                 self.signals.controller_ready,
+                 self.signals.branch_ready)
+
+        estimate = (len(tsigs) + ((len(sender.components) + 10) * 2)
+                     + len(osigs))
+        text = c.white("Startup...").embed()
+        p = self._startup_pbar = LazyProgressBar(estimate, text,
+                                                 c.reset().embed())
+        [sig.connect(p.step) for sig in tsigs + osigs]
+
+    @cached_property
+    def signals(self):
+        return import_module("cyme.branch.signals")

@@ -40,7 +40,7 @@ Options
 
 .. cmdoption:: -D, --instance-dir
 
-    Custom instance directory (deafult is :file:`instances/`)
+    Custom instance directory (default is :file:`instances/`)
     Must be readable by the current user.
 
     This needs to be properly specified if the :option:`-L` option
@@ -58,7 +58,7 @@ from inspect import getargspec
 
 from cyme.client import Client
 from cyme.client.base import Model
-from cyme.utils import cached_property
+from cyme.utils import cached_property, instantiate
 
 from .base import CymeCommand, Option, die
 
@@ -126,7 +126,6 @@ class I(object):
         try:
             response = handler(*args)
         except TypeError:
-            raise  # XXX
             arity, args, optargs = self.getsig(handler)
             die("%s.%s requires %s argument%s: %s %s" % (
                 type, action, arity, "s" if arity > 1 else "",
@@ -323,6 +322,9 @@ E.g.:
     cyme -a <app> queues.add <name> [exchange] [type] [rkey] [opts]
     cyme -a <app> queues.[get|delete] <name>
 
+    cyme start-all
+    cyme shutdown-all
+
     cyme shell
     """
     option_list = CymeCommand.option_list + (
@@ -351,19 +353,39 @@ E.g.:
     def handle(self, *args, **kwargs):
         local = kwargs.pop("local", False)
         kwargs = self.prepare_options(**kwargs)
+        from cyme.utils import setup_logging
+        self.commands = {"shell": self.drop_into_shell,
+                         "sh": self.drop_into_shell,
+                         "start-all": self.start_all,
+                         "restart-all": self.restart_all,
+                         "shutdown-all": self.shutdown_all}
+        setup_logging(kwargs["loglevel"], kwargs["logfile"])
         args = list(args)
         self.enter_instance_dir()
         if local:
             self.env.syncdb()
         if args:
-            if args[0] in ("shell", "sh"):
-                return self.drop_into_shell()
+            if args[0] in self.commands:
+                return self.commands[args[0]]()
             print((LocalI if local else WebI)(**kwargs).DISPATCH(*args))
         else:
             self.print_help()
+
+    def start_all(self):
+        self.status.start_all()
+
+    def restart_all(self):
+        self.status.restart_all()
+
+    def shutdown_all(self):
+        self.status.shutdown_all()
 
     def drop_into_shell(self):
         from cyme.utils import setup_logging
         if os.environ.get("CYME_LOG_DEBUG", False):
             setup_logging("DEBUG")
         self.env.management.call_command("shell")
+
+    @cached_property
+    def status(self):
+        return instantiate(self, "cyme.status.Status")

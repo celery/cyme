@@ -22,7 +22,7 @@ _branch = [None]
 @app(needs_eventlet=True, instance_dir=CYME_INSTANCE_DIR)
 def start_branch(env, argv=None):
     env.syncdb(interactive=False)
-    from cyme.branch import branch
+    from cyme.branch import Branch
     ready_event = Event()
     CYME_INSTANCE_DIR.mkdir()
     instance = Branch("127.0.0.1:%s" % (CYME_PORT, ), numc=1,

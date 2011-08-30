@@ -98,7 +98,7 @@ class apply(web.ApiView):
         params = gd(method) if method in self.get_methods else gd("GET")
         data = gd(method) if method not in self.get_methods else None
 
-        with producers[broker.connection()].acquire(block=True) as producer:
+        with broker.producers.acquire(block=True) as producer:
             publisher = celery.amqp.TaskPublisher(
                             connection=producer.connection,
                             channel=producer.channel)

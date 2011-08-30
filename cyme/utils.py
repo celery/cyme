@@ -16,12 +16,43 @@ _pkg_cache = {}
 
 
 def force_list(obj):
-    if not hasattr(obj, "__iter__"):
+    """Force object to be a list.
+
+    If ``obj`` is a scalar value then a list with that value as
+    sole element is returned, or
+    if ``obj` is a tuple then it is coerced into a list.
+
+    """
+    if isinstance(obj, tuple):
+        return list(obj)
+    elif not isinstance(obj, list):
         return [obj]
     return obj
 
 
 def find_package(mod, _s=None):
+    """Find the package a module belongs to.
+
+    if you have structure::
+
+        package/__init__.py
+               /foo.py
+               /bar/__init__.py
+               /bar/baz.py
+
+    Then the following examples returns::
+
+        >>> find_package(import_module("package"))
+        "package"
+        >>> find_package(import_module("package.foo"))
+        "package"
+        >>> find_package(import_module("package.bar.baz"))
+        >>> package.bar
+
+    Note that this does not look at the file system,
+    but rather uses the ``__package__`` attribute of a module.
+
+    """
     pkg = None
     _s = _s or mod
     if not mod:
@@ -36,17 +67,30 @@ def find_package(mod, _s=None):
 
 
 def find_symbol(origin, sym):
+    """Find symbol in module relative by ``origin``.
+
+    E.g. if ``origin`` is an object in the module ``package.foo``,
+    then::
+
+        >>> find_symbol(origin, ".bar.my_symbol")
+
+    will return the object ``my_symbol`` from module ``package.bar``.
+
+    """
     return get_symbol_by_name(sym,
                 package=find_package(getattr(origin, "__module__", None
                                         or origin.__class__.__module__)))
 
 
 def instantiate(origin, sym, *args, **kwargs):
+    """Like :func:`find_symbol` but instantiates the class found
+    using ``*args`` and ``**kwargs``."""
     return find_symbol(origin, sym)(*args, **kwargs)
 
 
 class Path(_Path):
-    """Path that can use the ``/`` operator to combine paths.
+    """:class:`unipath.Path` version that can use the ``/`` operator
+    to combine paths::
 
         >>> p = Path("foo")
         >>> p / "bar" / "baz"
@@ -73,6 +117,11 @@ def imerge_settings(a, b):
 
 
 def setup_logging(loglevel="INFO", logfile=None):
+    """Setup logging using ``loglevel`` and ``logfile``.
+
+    stderr will be used if not logfile provided.
+
+    """
     from celery.utils import LOG_LEVELS
     if isinstance(loglevel, basestring):
         loglevel = LOG_LEVELS[loglevel]
@@ -81,6 +130,8 @@ def setup_logging(loglevel="INFO", logfile=None):
 
 def redirect_stdouts_to_logger(loglevel="INFO", logfile=None,
         redirect_level="WARNING", stdout=False, stderr=True):
+    """See :meth:`celery.log.Log.redirect_stdouts_to_logger`."""
+    # XXX Currently unused.
     log = celery.log
     handled = setup_logging(loglevel, logfile)
     if not handled:

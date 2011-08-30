@@ -1,6 +1,7 @@
 """cyme.bin.base
 
-- Utilities used by command line apps.
+- Utilities used by command line applications,
+  basically just to set up Django without having an actual project.
 
 """
 
