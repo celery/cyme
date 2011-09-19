@@ -51,11 +51,11 @@ import os
 
 from importlib import import_module
 
+from celery import current_app as celery
 from celery.bin.base import daemon_options
 from celery.platforms import (create_pidlock, detached,
                               signals, set_process_title)
-from celery.log import colored
-from celery.utils import get_cls_by_name, instantiate
+from celery.utils.imports import get_cls_by_name, instantiate
 from cl.utils import cached_property, shortuuid
 
 from .base import CymeCommand, Option
@@ -117,11 +117,11 @@ class Command(CymeCommand):
     def handle(self, *args, **kwargs):
         kwargs = self.prepare_options(**kwargs)
         self.enter_instance_dir()
-        self.setup_logging()
+        self.setup_logging(**kwargs)
         self.env.syncdb()
         self.install_cry_handler()
         self.install_rdb_handler()
-        self.colored = colored(kwargs.get("logfile"))
+        self.colored = celery.log.colored(kwargs.get("logfile"))
         self.branch = instantiate(self.branch_cls, *args,
                                  colored=self.colored, **kwargs)
         self.connect_signals()

@@ -8,9 +8,10 @@ import sys
 
 from optparse import make_option as Option  # noqa
 
-from celery.utils import LOG_LEVELS, get_cls_by_name, instantiate
+from celery.utils.imports import get_cls_by_name, instantiate
 from django.conf import settings
 from djcelery.management.base import CeleryCommand
+from kombu.log import LOG_LEVELS
 
 from cyme import __version__
 from cyme.utils import (cached_property, setup_logging,
@@ -60,7 +61,7 @@ class CymeCommand(CeleryCommand):
             redirect_level="WARNING"):
         return redirect_stdouts_to_logger(loglevel, logfile, redirect_level)
 
-    def setup_logging(self, loglevel="WARNING", logfile=None):
+    def setup_logging(self, loglevel="WARNING", logfile=None, **kwargs):
         return setup_logging(loglevel, logfile)
 
     def prepare_options(self, broker=None, loglevel=None, logfile=None,

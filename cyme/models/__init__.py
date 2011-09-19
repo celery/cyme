@@ -366,7 +366,7 @@ class Instance(models.Model):
         return ("--                                   \
                  celeryd.prefetch_multiplier=10       \
                  celery.acks_late=yes                 \
-                 celery.amqp_task_result_expires=3600 \
+                 celery.task_result_expires=3600 \
                  celery.send_task_sent_event=yes".split())
 
     @property

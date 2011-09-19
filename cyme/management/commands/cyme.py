@@ -50,9 +50,10 @@ Options
 
 from __future__ import absolute_import
 
-import anyjson
+import json
 import os
 import pprint
+import sys
 
 from inspect import getargspec
 
@@ -61,6 +62,10 @@ from cyme.client.base import Model
 from cyme.utils import cached_property, instantiate
 
 from .base import CymeCommand, Option, die
+
+
+def json_pretty(obj, out=sys.stdout):
+    return json.dumps(obj, out, indent=4)
 
 
 class I(object):
@@ -93,8 +98,9 @@ class I(object):
                 "delete": self.delete_consumer},
         }
         self.needs_app = ("instances", "queues")
-        self.formats = {"json": anyjson.serialize,
-                        "pretty": pprint.pformat}
+        self.formats = {"jsonp": json_pretty,
+                        "json": json.dumps,
+                        "pprint": pprint.pformat}
 
     def getsig(self, fun, opt_args=None):
         spec = getargspec(fun)
@@ -169,7 +175,7 @@ class WebI(I):
                                          nowait=self.nowait)
 
     def delete_instance(self, name):
-        return self.client.delete(name, nowait=self.nowait)
+        return self.client.instances.get(name).delete(nowait=self.nowait)
 
     def instance_stats(self, name):
         return self.client.instances.get(name).stats()
@@ -335,8 +341,8 @@ E.g.:
               default=False, action="store_true", dest="nowait",
               help="Don't want for operations to complete (async)."),
        Option("-F", "--format",
-              default="pretty", action="store", dest="format",
-              help="Output format: pretty (default) or json"),
+              default="jsonp", action="store", dest="format",
+              help="Output format: jsonp (default) json or pprint"),
        Option("-L", "--local",
               default=False, action="store_true", dest="local",
               help="Perform operations locally for this branch only."),
@@ -353,13 +359,12 @@ E.g.:
     def handle(self, *args, **kwargs):
         local = kwargs.pop("local", False)
         kwargs = self.prepare_options(**kwargs)
-        from cyme.utils import setup_logging
         self.commands = {"shell": self.drop_into_shell,
                          "sh": self.drop_into_shell,
                          "start-all": self.start_all,
                          "restart-all": self.restart_all,
                          "shutdown-all": self.shutdown_all}
-        setup_logging(kwargs["loglevel"], kwargs["logfile"])
+        self.setup_logging(**kwargs)
         args = list(args)
         self.enter_instance_dir()
         if local:

@@ -6,7 +6,7 @@ import sys
 from importlib import import_module
 
 from celery import current_app as celery
-from celery.utils import get_symbol_by_name
+from celery.utils.imports import get_cls_by_name
 from cl.utils.functional import promise, maybe_promise # noqa
 from kombu.utils import gen_unique_id as uuid          # noqa
 from kombu.utils import cached_property                # noqa
@@ -77,7 +77,7 @@ def find_symbol(origin, sym):
     will return the object ``my_symbol`` from module ``package.bar``.
 
     """
-    return get_symbol_by_name(sym,
+    return get_cls_by_name(sym,
                 package=find_package(getattr(origin, "__module__", None
                                         or origin.__class__.__module__)))
 

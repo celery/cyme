@@ -5,8 +5,7 @@ from __future__ import absolute_import, with_statement
 from threading import Lock
 from Queue import Empty
 
-from celery.local import LocalProxy
-from celery.log import SilenceRepeated
+from celery.local import Proxy
 from eventlet.queue import LightQueue
 from eventlet.event import Event
 
@@ -74,7 +73,6 @@ class Supervisor(gThread, Status):
         self._last_update = None
         gThread.__init__(self)
         Status.__init__(self)
-        self._rinfo = SilenceRepeated(self.info, max_iterations=30)
 
     def __copy__(self):
         return self.__class__(self.interval, self._orig_queue_arg)
@@ -153,7 +151,7 @@ class Supervisor(gThread, Status):
                 self.respond_to_ping()
                 continue
             self.respond_to_ping()
-            self._rinfo("wake-up")
+            self.info("wake-up")
             try:
                 for instance in instances:
                     try:
@@ -197,4 +195,4 @@ def get_current():
         return _OfflineSupervisor()
     return __current
 
-supervisor = LocalProxy(get_current)
+supervisor = Proxy(get_current)

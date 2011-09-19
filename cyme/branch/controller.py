@@ -320,7 +320,7 @@ class Controller(ControllerBase, gThread):
     def on_connection_revived(self):
         state.on_broker_revive()
 
-    def on_consume_ready(self):
+    def on_consume_ready(self, *args, **kwargs):
         if not self._ready_sent:
             signals.controller_ready.send(sender=self)
             self._ready_sent = True
