@@ -76,6 +76,9 @@ class I(object):
         self.format = format or "pretty"
         self.nowait = nowait
         self.actions = {
+            "branches": {
+                "all": self.all_branches,
+            },
             "apps": {
                 "all": self.all_apps,
                 "get": self.get_app,
@@ -153,6 +156,9 @@ class I(object):
 
 
 class WebI(I):
+
+    def all_branches(self):
+        return list(self.client.branches)
 
     def all_apps(self):
         return list(self.client.all())
