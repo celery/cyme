@@ -70,7 +70,8 @@ def json_pretty(obj, out=sys.stdout):
 
 class I(object):
 
-    def __init__(self, app=None, format=None, nowait=False, **kwargs):
+    def __init__(self, app=None, format=None, nowait=False, url=None, **kwargs):
+        self.url = url
         self.app = app
         self.format = format or "pretty"
         self.nowait = nowait
@@ -105,6 +106,7 @@ class I(object):
     def getsig(self, fun, opt_args=None):
         spec = getargspec(fun)
         args = spec.args[:len(spec.defaults) if spec.defaults else None][1:]
+        print("SPEC: %r ARGS %r" % (spec, args, ))
         if args[0] == "self":
             args = args[1:]
         if spec.defaults:
@@ -225,7 +227,7 @@ class WebI(I):
 
     @cached_property
     def client(self):
-        client = Client()
+        client = Client(self.url)
         if self.app:
             return client.get(self.app)
         return client
@@ -352,6 +354,9 @@ E.g.:
        Option('-D', '--instance-dir',
               default=None, action="store", dest="instance_dir",
               help="Custom instance dir. Default is instances/"),
+       Option('-u', '--url',
+              default="http://localhost:8000", dest="url",
+              help="Custom URL"),
     )
 
     help = 'Cyme management utility'

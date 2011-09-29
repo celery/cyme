@@ -11,7 +11,7 @@ from __future__ import absolute_import
 import logging
 
 from celery import current_app as celery
-from celery.utils import term
+from celery.utils import LOG_LEVELS, term
 from cl.g import Event
 from kombu.utils import gen_unique_id
 
@@ -57,7 +57,8 @@ class Branch(gThread):
                                 sup_interval), signals.supervisor_ready)
         self.controllers = [gSup(instantiate(self, self.controller_cls,
                                    id="%s.%s" % (self.id, i),
-                                   connection=self.connection),
+                                   connection=self.connection,
+                                   branch=self),
                                  signals.controller_ready)
                                 for i in xrange(1, numc + 1)]
         c = [self.supervisor] + self.controllers + [self.httpd]
@@ -117,3 +118,12 @@ class Branch(gThread):
         self._components_shutdown[sender] = True
         if all(self._components_shutdown.values()):
             signals.branch_shutdown_complete.send(sender=self)
+
+    def about(self):
+        port = self.httpd.thread.port if self.httpd else None
+        return {"id": self.id,
+                "loglevel": LOG_LEVELS[self.loglevel],
+                "numc": self.numc,
+                "sup_interval": self.supervisor.interval,
+                "logfile": self.logfile,
+                "port": port}

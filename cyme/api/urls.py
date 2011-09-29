@@ -23,6 +23,7 @@ urlpatterns = patterns('',
     (r'^admin/doc/', include('django.contrib.admindocs.urls')),
 
     (r'^admin/', include(admin.site.urls)),
+    (r'^branches/(?P<branch>.+?)?/?$', views.Branch.as_view()),
     (_o_(r'^APP/queue/!(?P<rest>.+)'), views.apply.as_view()),
     (_o_(r'^APP/queues/!/?$'), views.Queue.as_view()),
     (_o_(r'^APP/queues/!(?P<name>.+?)/?$'), views.Queue.as_view()),

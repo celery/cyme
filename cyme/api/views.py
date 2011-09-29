@@ -9,9 +9,15 @@ from celery.result import AsyncResult
 from cl.pools import producers
 
 from . import web
-from ..branch.controller import apps, instances, queues
+from ..branch.controller import apps, branches, instances, queues
 from ..tasks import webhook
 from ..utils import uuid
+
+
+class Branch(web.ApiView):
+
+    def get(self, request, branch=None):
+        return branches.get(branch) if branch else branches.all()
 
 
 class App(web.ApiView):
@@ -35,11 +41,12 @@ class Instance(web.ApiView):
     def delete(self, request, app, name, nowait=False):
         return self.Ok(instances.remove(name, nowait=nowait))
 
-    def put(self, request, app, name=None, nowait=False):
+    def post(self, request, app, name=None, nowait=False):
         return self.Created(instances.add(name=name, app=app,
                                       nowait=nowait,
                                       **self.params("broker", "pool")))
-    post = put
+    def put(self, *args, **kwargs):
+        return self.NotImplemented("Operation is not idempotent: use POST")
 
 
 class Consumer(web.ApiView):

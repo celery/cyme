@@ -27,8 +27,7 @@ from ..utils import cached_property, find_symbol, promise
 ControllerBase = AwareAgent
 
 
-class ModelActor(Actor, AwareActorMixin):
-    model = None
+class CymeActor(Actor, AwareActorMixin):
     _announced = set()  # note: global
 
     def __init__(self, connection=None, *args, **kwargs):
@@ -39,6 +38,10 @@ class ModelActor(Actor, AwareActorMixin):
         # retry publishing messages by default if running as cyme-branch.
         self.retry = state.is_branch
         self.default_fields = {"actor_id": self.id}
+
+
+class ModelActor(CymeActor):
+    model = None
 
     def on_agent_ready(self):
         if self.name not in self._announced:
@@ -58,6 +61,50 @@ class ModelActor(Actor, AwareActorMixin):
     @cached_property
     def name_plural(self):
         return unicode(self.model._meta.verbose_name_plural).capitalize()
+
+
+class Branch(CymeActor):
+    exchange = Exchange("cyme.Branch")
+    default_timeout = 60
+    types = ("direct", "scatter", "round-robin")
+    meta_lookup_section = "this"
+
+    def on_agent_ready(self):
+        if self.name not in self._announced:
+            self.log.info("Actor ready", self.name)
+        self._announced.add(self.name)
+
+    class state:
+
+        def id(self):
+            return self.agent.branch.id
+
+        def about(self):
+            return self.agent.branch.about()
+
+        def shutdown(self, id):
+            if id in [self.id(), "*"]:
+                assert state.is_branch
+                self.log.warn("Shutdown requested from remote.")
+                raise SystemExit()
+            raise self.Next()
+
+    def all(self):
+        return flatten(self.scatter("id"))
+
+    def get(self, id, **kw):
+        return self.send_to_able("about", to=id, **kw)
+
+    def shutdown(self, id):
+        return self.send_to_able("shutdown", {"id": id}, to=id, nowait=True)
+
+    def shutdown_all(self):
+        return self.scatter("shutdown", {"id": "*"}, nowait=True)
+
+    @property
+    def meta(self):
+        return {"this": [self.state.id()]}
+branches = Branch()
 
 
 class App(ModelActor):
@@ -301,20 +348,21 @@ queues = Queue()
 
 
 class Controller(ControllerBase, gThread):
-    actors = [App(), Instance(), Queue()]
+    actors = [Branch(), App(), Instance(), Queue()]
     connect_max_retries = celery.conf.BROKER_CONNECTION_MAX_RETRIES
     extra_shutdown_steps = 2
     _ready_sent = False
     _presence_ready_sent = False
 
     def __init__(self, *args, **kwargs):
+        self.branch = kwargs.pop("branch", None)
         ControllerBase.__init__(self, *args, **kwargs)
         gThread.__init__(self)
 
     def on_awake(self):
         # bind global actors to this agent,
         # so presence can be used.
-        for actor in (apps, instances, queues):
+        for actor in (branches, apps, instances, queues):
             actor.agent = self
 
     def on_connection_revived(self):

@@ -2,10 +2,21 @@
 
 - Python client for the Cyme HTTP API.
 
+Branches
+~~~~~~~~
+
+   >>> client = Client("http://localhost:8000")
+   >>> client.branches
+   ["cyme1.example.com", "cyme2.example.com"]
+
+   >>> client.branch_info("cyme1.example.com")
+   {'sup_interval': 5, 'numc': 2, 'loglevel': 'INFO',
+    'logfile': None, 'id': 'cyme1.example.com', 'port': 8000}
+
 Applications
 ~~~~~~~~~~~~
 
-    >>> app = Client("http://localhost:8000").get("foo")
+    >>> app = client.get("foo")
     >>> app
     <Client: 'http://localhost:8016/foo'>
     >>> app.info
@@ -97,7 +108,9 @@ from __future__ import absolute_import
 from dictshield import fields
 
 from . import base
+from .base import Path
 from ..utils import cached_property
+
 
 
 # XXX `requests` does not currently seem to support using the
@@ -234,6 +247,13 @@ class Client(base.Client):
 
     def delete(self, name=None):
         return self.root("DELETE", name or self.app)
+
+    @property
+    def branches(self):
+        return self.root("GET", "branches")
+
+    def branch_info(self, id):
+        return self.root("GET", Path("branches") / id)
 
     def all(self):
         return self.root("GET")

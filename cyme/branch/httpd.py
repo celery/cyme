@@ -21,10 +21,11 @@ class HttpServer(gThread):
     joinable = False
 
     def __init__(self, addrport=None):
-        host, port = self.addrport = addrport or ("", 8000)
+        host, port = addrport or ("", 8000)
         if host == "localhost":
             # dnspython bug?
-            self.addrport = ("127.0.0.1", port)
+            host = "127.0.0.1"
+        self.host, self.port = self.addrport = (host, port)
         super(HttpServer, self).__init__()
 
     def server(self, sock, handler):

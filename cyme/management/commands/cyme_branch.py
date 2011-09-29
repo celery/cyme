@@ -94,6 +94,9 @@ class Command(CymeCommand):
         Option("-i", "--id",
                default=None, action="store", dest="id",
                help="Set explicit branch id."),
+        Option("-X", "--no-interaction",
+               default=False, action="store_true", dest="no_interaction",
+               help="Don't ask questions"),
         Option("--without-httpd",
                default=False, action="store_true", dest="without_httpd",
                help="Disable HTTP server"),
@@ -116,9 +119,10 @@ class Command(CymeCommand):
 
     def handle(self, *args, **kwargs):
         kwargs = self.prepare_options(**kwargs)
+        self.loglevel = kwargs.get("loglevel")
+        self.logfile = kwargs.get("logfile")
         self.enter_instance_dir()
-        self.setup_logging(**kwargs)
-        self.env.syncdb()
+        self.env.syncdb(interactive=not kwargs.get("no_interaction"))
         self.install_cry_handler()
         self.install_rdb_handler()
         self.colored = celery.log.colored(kwargs.get("logfile"))
@@ -160,6 +164,7 @@ class Command(CymeCommand):
             return self._start(pidfile=pidfile)
 
     def _start(self, pidfile=None, **kwargs):
+        self.setup_logging(logfile=self.logfile, loglevel=self.loglevel)
         self.set_process_title("boot")
         self.install_signal_handlers()
         if pidfile:
