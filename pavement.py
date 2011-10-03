@@ -1,9 +1,6 @@
-import sys
-from paver.easy import *
-from paver import doctools
-from paver.setuputils import setup
-
-PYCOMPILE_CACHES = ["*.pyc", "*$py.class"]
+from paver.easy import *            # noqa
+from paver import doctools          # noqa
+from paver.setuputils import setup  # noqa
 
 options(
         sphinx=Bunch(builddir=".build"),
@@ -27,9 +24,6 @@ def html(options):
     builtdocs = sphinx_builddir(options)
     builtdocs.move(destdir)
 
-@task
-def autodoc(options):
-    sh("contrib/release/doc4allmods cyme")
 
 @task
 @needs("paver.doctools.html")
@@ -54,8 +48,7 @@ def ghdocs(options):
 @needs("clean_docs", "paver.doctools.html")
 def upload_pypi_docs(options):
     builtdocs = path("docs") / options.builddir / "html"
-    sh("%s setup.py upload_sphinx --upload-dir='%s'" % (
-        sys.executable, builtdocs))
+    sh("python setup.py upload_sphinx --upload-dir='%s'" % (builtdocs))
 
 
 @task
@@ -65,27 +58,46 @@ def upload_docs(options):
 
 
 @task
-@cmdopts([
-    ("noerror", "E", "Ignore errors"),
-])
-def flake8(options):
-    noerror = getattr(options, "noerror", False)
-    complexity = getattr(options, "complexity", 22)
-    sh("""flake8 cyme | perl -mstrict -mwarnings -nle'
-        my $ignore = m/too complex \((\d+)\)/ && $1 le %s;
-        if (! $ignore) { print STDERR; our $FOUND_FLAKE = 1 }
-    }{exit $FOUND_FLAKE;
-        '""" % (complexity, ), ignore_error=noerror)
+def autodoc(options):
+    sh("contrib/release/doc4allmods cyme")
+
+
+@task
+def verifyindex(options):
+    sh("contrib/release/verify-reference-index.sh")
+
+
+@task
+def clean_readme(options):
+    path("README").unlink()
+    path("README.rst").unlink()
+
+
+@task
+@needs("clean_readme")
+def readme(options):
+    sh("python contrib/release/sphinx-to-rst.py docs/templates/readme.txt \
+            > README.rst")
+    sh("ln -sf README.rst README")
+
+
+@task
+def bump(options):
+    sh("contrib/release/bump_version.py cyme/__init__.py README.rst")
+
 
 @task
 @cmdopts([
     ("coverage", "c", "Enable coverage"),
+    ("quick", "q", "Quick test"),
     ("verbose", "V", "Make more noise"),
 ])
 def test(options):
     cmd = "nosetests"
     if getattr(options, "coverage", False):
         cmd += " --with-coverage3"
+    if getattr(options, "quick", False):
+        cmd = "QUICKTEST=1 SKIP_RLIMITS=1 %s" % cmd
     if getattr(options, "verbose", False):
         cmd += " --verbosity=2"
     sh(cmd)
@@ -95,16 +107,43 @@ def test(options):
 @cmdopts([
     ("noerror", "E", "Ignore errors"),
 ])
+def flake8(options):
+    noerror = getattr(options, "noerror", False)
+    sh("""flake8 cyme""", ignore_error=noerror)
+
+
+@task
+@cmdopts([
+    ("noerror", "E", "Ignore errors"),
+])
+def flakeplus(options):
+    noerror = getattr(options, "noerror", False)
+    sh("python contrib/release/flakeplus.py cyme",
+       ignore_error=noerror)
+
+
+@task
+@cmdopts([
+    ("noerror", "E", "Ignore errors"),
+])
+def flakes(options):
+    flake8(options)
+    flakeplus(options)
+
+
+@task
+@cmdopts([
+    ("noerror", "E", "Ignore errors"),
+])
 def pep8(options):
     noerror = getattr(options, "noerror", False)
-    return sh("""find . -name "*.py" | xargs pep8 | perl -nle'\
+    return sh("""find cyme -name "*.py" | xargs pep8 | perl -nle'\
             print; $a=1 if $_}{exit($a)'""", ignore_error=noerror)
 
 
 @task
 def removepyc(options):
-    sh("find . -type f -a \\( %s \\) | xargs rm" % (
-        " -o ".join("-name '%s'" % (pat, ) for pat in PYCOMPILE_CACHES), ))
+    sh("find . -name '*.pyc' | xargs rm")
 
 
 @task
@@ -120,7 +159,7 @@ def gitcleanforce(options):
 
 
 @task
-@needs("flake8", "test", "gitclean")
+@needs("flakes", "autodoc", "verifyindex", "test", "gitclean")
 def releaseok(options):
     pass
 

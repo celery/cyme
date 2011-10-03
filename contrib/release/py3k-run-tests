@@ -1,0 +1,15 @@
+#!/bin/bash
+base=${1:-.}
+nosetests -vd cyme.tests                                        \
+          --with-coverage3                                      \
+            --cover3-branch                                     \
+            --cover3-xml                                        \
+            --cover3-xml-file="$base/coverage.xml"              \
+            --cover3-html                                       \
+            --cover3-html-dir="$base/cover"                     \
+            --cover3-package=cyme                               \
+            --cover3-exclude="                                  \
+              cyme                                              \
+              cyme.tests.*                                      \
+            --with-xunit                                        \
+              --xunit-file="$base/nosetests.xml"
