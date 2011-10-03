@@ -19,7 +19,7 @@ from . import signals
 from .state import state
 from .thread import gThread
 
-from ..utils import find_symbol, instantiate, LazyProgressBar
+from ..utils import find_symbol, instantiate
 
 
 class Branch(gThread):

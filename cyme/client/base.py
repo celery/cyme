@@ -52,8 +52,6 @@ class Base(object):
         return name
 
 
-
-
 class Model(Document):
 
     def __init__(self, parent, *args, **kwargs):
@@ -148,7 +146,7 @@ class Client(Base):
         data = self._prepare(data)
         params = self._prepare(params)
         if DEBUG:
-            print("<REQ> %s %r data=%r params=%r" % (method, url,
+            print("<REQ> %s %r data=%r params=%r" % (method, url,  # noqa+
                                                      data, params))
         type = type or AttributeDict
         r = requests.request(method, str(url),
@@ -157,7 +155,7 @@ class Client(Base):
         data = None
         if DEBUG:
             data = r.read()
-            print("<RES> %r" % (data, ))
+            print("<RES> %r" % (data, ))  # noqa+
         if r.ok:
             if data is None:
                 data = r.read()

@@ -45,6 +45,7 @@ Options
 """
 
 from __future__ import absolute_import
+from __future__ import with_statement
 
 import atexit
 import os
@@ -55,7 +56,7 @@ from celery import current_app as celery
 from celery.bin.base import daemon_options
 from celery.platforms import (create_pidlock, detached,
                               signals, set_process_title)
-from celery.utils.imports import get_cls_by_name, instantiate
+from celery.utils.imports import instantiate
 from cl.utils import cached_property, shortuuid
 
 from .base import CymeCommand, Option
@@ -184,7 +185,6 @@ class Command(CymeCommand):
         except AttributeError:
             pres_interval = "(disabled)"
         sup = branch.supervisor.thread
-        from celery import current_app
         return BANNER % {"id": branch.id,
                          "version": self.__version__,
                          "broker": branch.connection.as_uri(),

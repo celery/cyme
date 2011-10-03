@@ -111,8 +111,6 @@ from . import base
 from .base import Path
 from ..utils import cached_property
 
-
-
 # XXX `requests` does not currently seem to support using the
 #     data argument with PUT requests.
 

@@ -1,5 +1,6 @@
 """Since cyme works as a contained Django APP, this is the default settings
 file used when cyme is used outside of a Django project context."""
+from __future__ import absolute_import
 
 
 import os

@@ -54,12 +54,13 @@ Options
 
 from __future__ import absolute_import
 
-import json
+import anyjson
 import os
 import pprint
-import sys
 
+from functools import partial
 from inspect import getargspec
+
 
 from celery import current_app as celery
 from cyme.client import Client
@@ -69,13 +70,17 @@ from cyme.utils import cached_property, instantiate
 from .base import CymeCommand, Option, die
 
 
-def json_pretty(obj, out=sys.stdout):
-    return json.dumps(obj, out, indent=4)
+try:
+    import json as _json   # Python 2.6+
+    json_pretty = partial(_json.dumps, indent=4)
+except ImportError:
+    json_pretty = anyjson.serialize  # noqa
 
 
 class I(object):
 
-    def __init__(self, app=None, format=None, nowait=False, url=None, **kwargs):
+    def __init__(self, app=None, format=None, nowait=False,
+            url=None, **kwargs):
         self.url = url
         self.app = app
         self.format = format or "pretty"
@@ -108,14 +113,12 @@ class I(object):
         }
         self.needs_app = ("instances", "queues")
         self.formats = {"jsonp": json_pretty,
-                        "json": json.dumps,
+                        "json": anyjson.serialize,
                         "pprint": pprint.pformat}
 
     def getsig(self, fun, opt_args=None):
         spec = getargspec(fun)
-        print("DEFAULTS: %r" % (spec.args[:len(spec.defaults)], ))
         args = spec.args[:-len(spec.defaults) if spec.defaults else None]
-        print("SPEC: %r ARGS %r" % (spec, args, ))
         if args[0] == "self":
             args = args[1:]
         if spec.defaults:

@@ -1,6 +1,7 @@
 """cyme.branch.supervisor"""
 
-from __future__ import absolute_import, with_statement
+from __future__ import absolute_import
+from __future__ import with_statement
 
 from threading import Lock
 from Queue import Empty
@@ -171,7 +172,6 @@ class Supervisor(gThread, Status):
         if not self._last_update or force:
             self._last_update = self.verify(self.all_instances(),
                                             ratelimit=True)
-
 
 
 class _OfflineSupervisor(object):

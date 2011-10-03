@@ -1,12 +1,12 @@
 """cyme.api.views"""
 
 from __future__ import absolute_import
+from __future__ import with_statement
 
 import re
 
 from celery import current_app as celery
 from celery.result import AsyncResult
-from cl.pools import producers
 
 from . import web
 from ..branch.controller import apps, branches, instances, queues
@@ -49,6 +49,7 @@ class Instance(web.ApiView):
                                       **self.params("broker", "pool",
                                                     "arguments",
                                                     "extra_config")))
+
     def put(self, *args, **kwargs):
         return self.NotImplemented("Operation is not idempotent: use POST")
 

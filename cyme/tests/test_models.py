@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from celery.tests.utils import unittest
 from mock import Mock
 

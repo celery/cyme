@@ -5,7 +5,8 @@
 
 """
 
-from __future__ import absolute_import, with_statement
+from __future__ import absolute_import
+from __future__ import with_statement
 
 from .. import __version__, DEBUG, DEBUG_BLOCK, DEBUG_READERS
 
@@ -39,10 +40,10 @@ class Env(object):
         eventlet.monkey_patch()
         if DEBUG_READERS:
             eventlet.debug.hub_prevent_multiple_readers(False)
-            print("+++ MULTIPLE READERS ALLOWED +++")
+            print("+++ MULTIPLE READERS ALLOWED +++")    # noqa+
         if DEBUG_BLOCK:
             eventlet.debug.hub_blocking_detection(True)
-            print("+++ BLOCKING DETECTION ENABLED +++")
+            print("+++ BLOCKING DETECTION ENABLED +++")  # noqa+
 
     def configure(self):
         from django.conf import settings

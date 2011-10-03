@@ -5,6 +5,7 @@
 """
 
 from __future__ import absolute_import
+from __future__ import with_statement
 
 import os
 
@@ -171,7 +172,6 @@ class gThread(LogMixin):
             signals.thread_exit.send(sender=self)
             self.debug("exiting")
         except Exception, exc:
-            print("EXC: %r" % (exc, ))
             self.error("Thread crash detected: %r", exc)
             os._exit(0)
         except self.Timeout, exc:
