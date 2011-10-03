@@ -125,6 +125,8 @@ class Instance(base.Model):
     max_concurrency = fields.IntField()
     is_enabled = fields.BooleanField()
     queue_names = fields.ListField(fields.StringField(max_length=200))
+    arguments = fields.StringField(max_length=200)
+    extra_config = fields.StringField(max_length=200)
 
     def __repr__(self):
         return "<Instance: %r>" % (self.name, )
@@ -202,9 +204,13 @@ class Client(base.Client):
             def queues(self):
                 return self.LazyQueues(self)
 
-        def add(self, name=None, broker=None, nowait=False):
+        def add(self, name=None, broker=None, arguments=None,
+                config=None, nowait=False):
             # name is optional for instances
-            return base.Section.add(self, name, nowait, broker=broker)
+            return base.Section.add(self, name, nowait,
+                                    broker=broker,
+                                    arguments=arguments,
+                                    extra_config=config)
 
         def stats(self, name):
             return self.GET(self.path / name / "stats")
@@ -238,9 +244,13 @@ class Client(base.Client):
         self.queues = self.Queues(self)
         self.info = info or {}
 
-    def add(self, name, broker=None):
-        return self.create_model(name, self.root("POST", name,
-                                 data={"broker": broker}))
+    def add(self, name, broker=None, arguments=None, extra_config=None,
+            nowait=False):
+        return self.create_model(name, self.root("POST",
+                                 self.maybe_async(name, nowait),
+                                 data={"broker": broker,
+                                       "arguments": arguments,
+                                       "extra_config": extra_config}))
 
     def get(self, name=None):
         return self.create_model(name, self.root("GET", name or self.app))

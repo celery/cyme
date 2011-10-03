@@ -46,6 +46,13 @@ class Base(object):
     def __iter__(self):
         return iter(self.keys())
 
+    def maybe_async(self, name, nowait):
+        if nowait:
+            return Path("!") / name
+        return name
+
+
+
 
 class Model(Document):
 
@@ -96,16 +103,16 @@ class Section(Base):
             name = name.name
         return self.DELETE(self.maybe_async(name, nowait))
 
-    def maybe_async(self, name, nowait):
-        if nowait:
-            return self.path / "!" / name
-        return self.path / name
-
     def create_model(self, *args, **kwargs):
         model = self.Model(self,
                             **self.Model(self, *args, **kwargs).to_python())
         model.validate()
         return model
+
+    def maybe_async(self, name, nowait):
+        if nowait:
+            return self.path / "!" / name
+        return self.path / name
 
     def __repr__(self):
         return repr(list(self.all()))

@@ -26,7 +26,9 @@ class App(web.ApiView):
         return apps.get(app).as_dict() if app else apps.all()
 
     def put(self, request, app=None):
-        return self.Created(apps.add(app or uuid(), **self.params("broker")))
+        return self.Created(apps.add(app or uuid(),
+                            **self.params("broker", "arguments",
+                                          "extra_config")))
     post = put
 
     def delete(self, request, app):
@@ -44,7 +46,9 @@ class Instance(web.ApiView):
     def post(self, request, app, name=None, nowait=False):
         return self.Created(instances.add(name=name, app=app,
                                       nowait=nowait,
-                                      **self.params("broker", "pool")))
+                                      **self.params("broker", "pool",
+                                                    "arguments",
+                                                    "extra_config")))
     def put(self, *args, **kwargs):
         return self.NotImplemented("Operation is not idempotent: use POST")
 

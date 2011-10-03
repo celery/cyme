@@ -151,7 +151,7 @@ class Supervisor(gThread, Status):
                 self.respond_to_ping()
                 continue
             self.respond_to_ping()
-            self.info("wake-up")
+            self.debug("wake-up")
             try:
                 for instance in instances:
                     try:

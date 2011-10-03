@@ -46,6 +46,10 @@ Options
     This needs to be properly specified if the :option:`-L` option
     is used.
 
+.. cmdoption:: -b, --broker
+
+    Broker to use for a local `branches` request.
+
 """
 
 from __future__ import absolute_import
@@ -57,6 +61,7 @@ import sys
 
 from inspect import getargspec
 
+from celery import current_app as celery
 from cyme.client import Client
 from cyme.client.base import Model
 from cyme.utils import cached_property, instantiate
@@ -108,7 +113,8 @@ class I(object):
 
     def getsig(self, fun, opt_args=None):
         spec = getargspec(fun)
-        args = spec.args[:len(spec.defaults) if spec.defaults else None][1:]
+        print("DEFAULTS: %r" % (spec.args[:len(spec.defaults)], ))
+        args = spec.args[:-len(spec.defaults) if spec.defaults else None]
         print("SPEC: %r ARGS %r" % (spec, args, ))
         if args[0] == "self":
             args = args[1:]
@@ -137,6 +143,7 @@ class I(object):
         try:
             response = handler(*args)
         except TypeError:
+            raise
             arity, args, optargs = self.getsig(handler)
             die("%s.%s requires %s argument%s: %s %s" % (
                 type, action, arity, "s" if arity > 1 else "",
@@ -166,8 +173,10 @@ class WebI(I):
     def get_app(self, name):
         return self.client.get(name).info
 
-    def add_app(self, name, broker=None):
-        return self.client.add(name, nowait=self.nowait, broker=broker).info
+    def add_app(self, name, broker=None, arguments=None, extra_config=None):
+        return self.client.add(name, nowait=self.nowait,
+                               broker=broker, arguments=arguments,
+                               extra_config=extra_config).info
 
     def delete_app(self, name):
         return self.client.delete(name, nowait=self.nowait)
@@ -178,8 +187,11 @@ class WebI(I):
     def get_instance(self, name):
         return self.client.instances.get(name)
 
-    def add_instance(self, name=None, broker=None):
+    def add_instance(self, name=None, broker=None, arguments=None,
+            extra_config=None):
         return self.client.instances.add(name=name, broker=broker,
+                                         arguments=arguments,
+                                         extra_config=extra_config,
                                          nowait=self.nowait)
 
     def delete_instance(self, name):
@@ -243,11 +255,17 @@ class LocalI(I):
 
     def __init__(self, *args, **kwargs):
         super(LocalI, self).__init__(*args, **kwargs)
+        self.broker = kwargs.get("broker")
         from cyme.branch.controller import apps, instances, queues
         self.get_app = apps.get
         self.apps = apps.state
         self.instances = instances.state
         self.queues = queues.state
+
+    def all_branches(self):
+        from cyme.branch.controller import Branch
+        args = [self.broker] if self.broker else []
+        return Branch(connection=celery.broker_connection(*args)).all()
 
     def all_apps(self):
         return [app.as_dict() for app in self.apps.objects.all()]
@@ -255,8 +273,9 @@ class LocalI(I):
     def get_app(self):
         return self.apps.objects.get(app=self.app)
 
-    def add_app(self, name):
-        return self.apps.add(name)
+    def add_app(self, name, broker=None, arguments=None, extra_config=None):
+        return self.apps.add(name, broker=broker, arguments=arguments,
+                                   extra_config=extra_config)
 
     def delete_app(self, name):
         self.apps.delete(name)
@@ -270,8 +289,11 @@ class LocalI(I):
     def get_instance(self, name):
         return self.instances.get(name, app=self.app)
 
-    def add_instance(self, name=None, broker=None):
-        return self.instances.add(name, broker=broker, app=self.app)
+    def add_instance(self, name=None, broker=None, arguments=None,
+            extra_config=None):
+        return self.instances.add(name, broker=broker, app=self.app,
+                                  arguments=arguments,
+                                  extra_config=extra_config)
 
     def delete_instance(self, name):
         return {"ok": self.instances.remove(name)}
@@ -324,11 +346,11 @@ class Command(CymeCommand):
     args = """type command [args]
 E.g.:
     cyme apps
-    cyme apps.add <name> [broker URL]
+    cyme apps.add <name> [broker URL] [arguments] [extra config]
     cyme apps.[get|delete] <name>
 
     cyme -a <app> instances
-    cyme -a <app> instances.add [name] [broker URL]
+    cyme -a <app> instances.add [name] [broker URL] [arguments] [extra config]
     cyme -a <app> instances.[get|delete|stats] <name>
     cyme -a <app> instances.autoscale <name> [max] [min]
 
@@ -338,6 +360,8 @@ E.g.:
 
     cyme start-all
     cyme shutdown-all
+
+    cyme createsuperuser
 
     cyme shell
     """
@@ -363,6 +387,9 @@ E.g.:
        Option('-u', '--url',
               default="http://localhost:8000", dest="url",
               help="Custom URL"),
+       Option('-b', '--broker',
+              default="None", dest="broker",
+              help="Broker to use for a local branches request"),
     )
 
     help = 'Cyme management utility'
@@ -374,7 +401,8 @@ E.g.:
                          "sh": self.drop_into_shell,
                          "start-all": self.start_all,
                          "restart-all": self.restart_all,
-                         "shutdown-all": self.shutdown_all}
+                         "shutdown-all": self.shutdown_all,
+                         "createsuperuser": self.create_superuser}
         self.setup_logging(**kwargs)
         args = list(args)
         self.enter_instance_dir()
@@ -398,9 +426,12 @@ E.g.:
 
     def drop_into_shell(self):
         from cyme.utils import setup_logging
-        if os.environ.get("CYME_LOG_DEBUG", False):
+        if os.environ.get("CYME_LOG_DEBUG"):
             setup_logging("DEBUG")
         self.env.management.call_command("shell")
+
+    def create_superuser(self):
+        self.env.management.call_command("createsuperuser")
 
     @cached_property
     def status(self):

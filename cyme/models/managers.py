@@ -11,16 +11,20 @@
 from __future__ import absolute_import
 
 from anyjson import serialize
+from celery import current_app as celery
 from djcelery.managers import ExtendedManager
 
 from ..utils import cached_property, uuid
 
 
 class BrokerManager(ExtendedManager):
-    default_url = "amqp://guest:guest@localhost:5672//"
 
     def get_default(self):
         return self.get_or_create(url=self.default_url)[0]
+
+    @property
+    def default_url(self):
+        return celery.broker_connection().as_uri()
 
 
 class AppManager(ExtendedManager):
@@ -28,10 +32,13 @@ class AppManager(ExtendedManager):
     def from_json(self, name=None, broker=None):
         return {"name": name, "broker": self.get_broker(broker)}
 
-    def recreate(self, name=None, broker=None):
+    def recreate(self, name=None, broker=None, arguments=None,
+            extra_config=None):
         d = self.from_json(name, broker)
         return self.get_or_create(name=d["name"],
-                                  defaults={"broker": d["broker"]})[0]
+                                  defaults={"broker": d["broker"],
+                                            "arguments": arguments,
+                                            "extra_config": extra_config})[0]
 
     def instance(self, name=None, broker=None):
         return self.model(**self.from_json(name, broker))
@@ -39,9 +46,12 @@ class AppManager(ExtendedManager):
     def get_broker(self, url):
         return self.Brokers.get_or_create(url=url)[0]
 
-    def add(self, name=None, broker=None):
+    def add(self, name=None, broker=None, arguments=None, extra_config=None):
         broker = self.get_broker(broker) if broker else None
-        return self.get_or_create(name=name, defaults={"broker": broker})[0]
+        return self.get_or_create(name=name, defaults={
+                "broker": broker,
+                "arguments": arguments,
+                "extra_config": extra_config})[0]
 
     def get_default(self):
         return self.get_or_create(name="cyme")[0]
@@ -63,12 +73,15 @@ class InstanceManager(ExtendedManager):
                     for queue in queues]
 
     def add(self, name=None, queues=None, max_concurrency=1,
-            min_concurrency=1, broker=None, pool=None, app=None):
+            min_concurrency=1, broker=None, pool=None, app=None,
+            arguments=None, extra_config=None):
         instance = self.create(name=name or uuid(),
                                max_concurrency=max_concurrency,
                                min_concurrency=min_concurrency,
                                pool=pool,
-                               app=app)
+                               app=app,
+                               arguments=arguments,
+                               extra_config=extra_config)
         needs_save = False
         if queues:
             instance.queues = self._maybe_queues(queues)

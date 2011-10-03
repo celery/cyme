@@ -4,6 +4,7 @@ from __future__ import absolute_import, with_statement
 
 import errno
 import os
+import shlex
 import warnings
 
 from threading import Lock
@@ -12,6 +13,7 @@ from anyjson import deserialize
 from celery import current_app as celery
 from celery import platforms
 from celery.bin.celeryd_multi import MultiTool
+from celery.utils.encoding import safe_str
 from cl.log import anon_logger
 from cl.pools import connections, producers
 from eventlet import Timeout
@@ -23,6 +25,12 @@ from . import managers
 from ..utils import cached_property, find_symbol
 
 logger = anon_logger("Instance")
+
+
+def shsplit(s):
+    if s:
+        return shlex.split(safe_str(s))
+    return []
 
 
 class Broker(models.Model):
@@ -67,6 +75,8 @@ class App(models.Model):
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
     broker = models.ForeignKey(Broker, null=True, blank=True)
+    arguments = models.TextField(_(u"arguments"))
+    extra_config = models.TextField(_(u"extra config"))
 
     class Meta:
         verbose_name = _(u"app")
@@ -82,7 +92,9 @@ class App(models.Model):
 
     def as_dict(self):
         return {"name": self.name,
-                "broker": self.get_broker().url}
+                "broker": self.get_broker().url,
+                "arguments": self.arguments,
+                "extra_config": self.extra_config}
 
 
 class Queue(models.Model):
@@ -136,6 +148,8 @@ class Instance(models.Model):
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
     _broker = models.ForeignKey(Broker, null=True, blank=True)
+    arguments = models.TextField(_(u"arguments"))
+    extra_config = models.TextField(_(u"extra config"))
 
     class Meta:
         verbose_name = _(u"instance")
@@ -161,7 +175,9 @@ class Instance(models.Model):
                 "min_concurrency": self.min_concurrency,
                 "is_enabled": self.is_enabled,
                 "broker": self.broker.url,
-                "pool": self.pool}
+                "pool": self.pool,
+                "arguments": self.arguments,
+                "extra_config": self.extra_config}
 
     def enable(self):
         """Enables this instance (model-only)."""
@@ -286,13 +302,24 @@ class Instance(models.Model):
         return platforms.PIDFile(
                 self.pidfile.replace("%n", self.name)).read_pid()
 
+    def get_arguments(self):
+        return (list(self.default_args)
+              + shsplit(self.app.arguments)
+              + shsplit(self.arguments))
+
+    def get_extra_config(self):
+        return (list(self.default_config)
+              + shsplit(self.app.extra_config)
+              + shsplit(self.extra_config))
+
     def _action(self, action, multi="celeryd-multi"):
         """Execute :program:`celeryd-multi` command."""
         with self.mutex:
             argv = ([multi, action, "--nosplash", '--suffix=""', "--no-color"]
                   + [self.name]
-                  + list(self.default_args)
-                  + self.extra_config)
+                  + self.get_arguments()
+                  + ["--"]
+                  + self.get_extra_config())
             logger.info(" ".join(argv))
             return self.multi.execute_from_commandline(argv)
 
@@ -362,11 +389,10 @@ class Instance(models.Model):
                                        self.min_concurrency))
 
     @property
-    def extra_config(self):
-        return ("--                                   \
-                 celeryd.prefetch_multiplier=10       \
+    def default_config(self):
+        return ("celeryd.prefetch_multiplier=10       \
                  celery.acks_late=yes                 \
-                 celery.task_result_expires=3600 \
+                 celery.task_result_expires=3600      \
                  celery.send_task_sent_event=yes".split())
 
     @property

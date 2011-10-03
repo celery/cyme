@@ -46,7 +46,6 @@ USE_I18N = USE_L10N = True
 INSTALLED_APPS = ("django.contrib.auth",
                   "django.contrib.contenttypes",
                   "django.contrib.sessions",
-                  "django.contrib.sites",
                   "cyme",  # cyme must be before admin.
                   "cyme.api",
                   "django.contrib.admin",

@@ -8,9 +8,9 @@ from __future__ import absolute_import
 
 from functools import partial
 
-from cl import Actor
+from celery.actors import Actor, AwareAgent
 from cl.common import uuid
-from cl.presence import AwareAgent, AwareActorMixin, announce_after
+from cl.presence import AwareActorMixin, announce_after
 from cl.utils import flatten, first_or_raise, shortuuid
 from celery import current_app as celery
 from kombu import Exchange
@@ -24,17 +24,11 @@ from .. import conf
 from .. import models
 from ..utils import cached_property, find_symbol, promise
 
-ControllerBase = AwareAgent
-
 
 class CymeActor(Actor, AwareActorMixin):
     _announced = set()  # note: global
 
-    def __init__(self, connection=None, *args, **kwargs):
-        if not connection:
-            connection = celery.broker_connection()
-        Actor.__init__(self, connection, *args, **kwargs)
-
+    def setup(self):
         # retry publishing messages by default if running as cyme-branch.
         self.retry = state.is_branch
         self.default_fields = {"actor_id": self.id}
@@ -119,8 +113,10 @@ class App(ModelActor):
         def all(self):
             return [app.name for app in self.objects.all()]
 
-        def add(self, name, broker=None):
-            return self.objects.add(name, broker=broker).as_dict()
+        def add(self, name, broker=None, arguments=None, extra_config=None):
+            return self.objects.add(name, broker=broker,
+                                          arguments=arguments,
+                                          extra_config=extra_config).as_dict()
 
         def delete(self, name):
             return self.objects.filter(name=name).delete() and "ok"
@@ -347,7 +343,7 @@ class Queue(ModelActor):
 queues = Queue()
 
 
-class Controller(ControllerBase, gThread):
+class Controller(AwareAgent, gThread):
     actors = [Branch(), App(), Instance(), Queue()]
     connect_max_retries = celery.conf.BROKER_CONNECTION_MAX_RETRIES
     extra_shutdown_steps = 2
@@ -356,7 +352,7 @@ class Controller(ControllerBase, gThread):
 
     def __init__(self, *args, **kwargs):
         self.branch = kwargs.pop("branch", None)
-        ControllerBase.__init__(self, *args, **kwargs)
+        AwareAgent.__init__(self, *args, **kwargs)
         gThread.__init__(self)
 
     def on_awake(self):

@@ -101,12 +101,6 @@ class Path(_Path):
         return Path(self, other)
 
 
-def shellquote(v):
-    # XXX Not currently used, but may be of use later,
-    # and don't want to write it again.
-    return "\\'".join("'" + p + "'" for p in v.split("'"))
-
-
 def imerge_settings(a, b):
     """Merge two django settings modules,
     keys in ``b`` have precedence."""

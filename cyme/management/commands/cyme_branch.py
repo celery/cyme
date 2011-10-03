@@ -122,7 +122,7 @@ class Command(CymeCommand):
         self.loglevel = kwargs.get("loglevel")
         self.logfile = kwargs.get("logfile")
         self.enter_instance_dir()
-        self.env.syncdb(interactive=not kwargs.get("no_interaction"))
+        self.env.syncdb(interactive=False)
         self.install_cry_handler()
         self.install_rdb_handler()
         self.colored = celery.log.colored(kwargs.get("logfile"))
@@ -184,6 +184,7 @@ class Command(CymeCommand):
         except AttributeError:
             pres_interval = "(disabled)"
         sup = branch.supervisor.thread
+        from celery import current_app
         return BANNER % {"id": branch.id,
                          "version": self.__version__,
                          "broker": branch.connection.as_uri(),

@@ -24,10 +24,12 @@ class LocalInstanceManager(object):
 
     def add(self, name=None, queues=None,
             max_concurrency=1, min_concurrency=1, broker=None,
-            pool=None, app=None, nowait=False, **kwargs):
+            pool=None, app=None, arguments=None, extra_config=None,
+            nowait=False, **kwargs):
         broker = self.Brokers.get_or_create(url=broker)[0] if broker else None
         instance = self.Instances.add(name, queues, max_concurrency,
-                                  min_concurrency, broker, pool, app)
+                                  min_concurrency, broker, pool, app,
+                                  arguments, extra_config)
         return self.maybe_wait(sup.verify, instance, nowait)
 
     def remove(self, name, nowait=False):

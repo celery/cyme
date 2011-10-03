@@ -51,7 +51,8 @@ class HttpServer(gThread):
         class _Log(object):
 
             def write(self, message):
-                logger.info(message.rstrip('\n'))
+                message = message.rstrip('\n')
+                (logger.debug if '/ping/' in message else logger.info)(message)
 
         return _Log()
 
