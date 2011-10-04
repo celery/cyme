@@ -11,7 +11,7 @@ import os
 
 from Queue import Empty
 
-from cl.g import blocking, Event, spawn, timer, Queue
+from cl.g import Event, spawn, timer, Queue
 from cl.log import LogMixin
 from eventlet import Timeout
 
@@ -136,7 +136,7 @@ class gThread(LogMixin):
         with self.Timeout(timeout):
             signals.thread_pre_join.send(sender=self, timeout=timeout)
             self.debug("joining (%s)", timeout)
-            blocking(self._exit_event.wait)
+            self._exit_event.wait()
             signals.thread_post_join.send(sender=self)
 
     def respond_to_ping(self):

@@ -8,7 +8,6 @@ from celery.datastructures import TokenBucket
 from celery.utils.timeutils import rate
 from cl.common import insured as _insured
 from cl.log import LogMixin
-from kombu.syn import blocking
 from kombu.utils import fxrangemax
 
 from .models import Instance
@@ -56,9 +55,9 @@ class Status(LogMixin):
                         errback=errback)
 
     def ib(self, fun, *args, **kwargs):
-        """Shortcut to ``blocking(self.insured(
-            fun.im_self, fun(*args, **kwargs)))``"""
-        return blocking(self.insured, fun.im_self, fun, *args, **kwargs)
+        """Shortcut to ``self.insured(
+            fun.im_self, fun(*args, **kwargs))``"""
+        return self.insured(fun.im_self, fun, *args, **kwargs)
 
     def pause(self):
         self.paused = True  # only used in supervisor.
@@ -73,7 +72,7 @@ class Status(LogMixin):
         """Restarts the instance, and verifies that the instance is
         actually able to start."""
         self.info("%s instance.restart" % (instance, ))
-        blocking(instance.restart)
+        instance.restart()
         is_alive = False
         for i in fxrangemax(0.1, 1, 0.4, 30):
             self.info("%s pingWithTimeout: %s", instance, i)
@@ -109,11 +108,11 @@ class Status(LogMixin):
 
     def _do_stop_instance(self, instance):
         self.info("%s instance.shutdown" % (instance, ))
-        blocking(instance.stop)
+        instance.stop()
 
     def _do_stop_verify_instance(self, instance):
         self.info("%s instance.shutdown" % (instance, ))
-        blocking(instance.stop_verify)
+        instance.stop_verify()
 
     def _do_verify_instance(self, instance, ratelimit=False):
         if not self.paused:
