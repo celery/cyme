@@ -144,8 +144,10 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     entry_points={
-        "console_scripts": ["cyme-branch = cyme.bin.cyme_branch:cyme_branch",
-                            "cyme        = cyme.bin.cyme:cyme"]
+        "console_scripts": [
+            "cyme-branch        = cyme.bin.cyme_branch:cyme_branch",
+            "cyme               = cyme.bin.cyme:cyme",
+            "cyme-list-branches = cyme.bin.cyme_list_branches:main"],
     },
     long_description=long_description,
 )

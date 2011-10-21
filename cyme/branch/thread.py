@@ -12,8 +12,8 @@ import os
 from Queue import Empty
 
 from cl.g import blocking, Event, spawn, timer, Queue
-from cl.log import LogMixin
 from eventlet import Timeout
+from kombu.log import LogMixin
 
 from . import signals
 

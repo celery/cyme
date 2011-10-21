@@ -7,9 +7,9 @@ from importlib import import_module
 
 from celery import current_app as celery
 from celery.utils.imports import get_cls_by_name
-from cl.utils.functional import promise, maybe_promise # noqa
-from kombu.utils import gen_unique_id as uuid          # noqa
-from kombu.utils import cached_property                # noqa
+from kombu.utils.functional import promise, maybe_promise   # noqa
+from kombu.utils import gen_unique_id as uuid               # noqa
+from kombu.utils import cached_property                     # noqa
 from unipath import Path as _Path
 
 _pkg_cache = {}

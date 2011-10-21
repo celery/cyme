@@ -6,8 +6,8 @@ from collections import defaultdict
 
 from celery.datastructures import TokenBucket
 from celery.utils.timeutils import rate
-from cl.common import insured as _insured
-from cl.log import LogMixin
+from kombu.common import insured as _insured
+from kombu.log import LogMixin
 from kombu.syn import blocking
 from kombu.utils import fxrangemax
 

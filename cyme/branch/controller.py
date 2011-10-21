@@ -9,11 +9,11 @@ from __future__ import absolute_import
 from functools import partial
 
 from celery.actors import Actor, AwareAgent
-from cl.common import uuid
 from cl.presence import AwareActorMixin, announce_after
 from cl.utils import flatten, first_or_raise, shortuuid
 from celery import current_app as celery
 from kombu import Exchange
+from kombu.common import uuid
 
 from . import metrics
 from . import signals
@@ -83,8 +83,8 @@ class Branch(CymeActor):
                 raise SystemExit()
             raise self.Next()
 
-    def all(self):
-        return flatten(self.scatter("id"))
+    def all(self, **kw):
+        return flatten(self.scatter("id", **kw))
 
     def get(self, id, **kw):
         return self.send_to_able("about", to=id, **kw)
