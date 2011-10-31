@@ -134,10 +134,14 @@ class Branch(gThread):
             signals.branch_shutdown_complete.send(sender=self)
 
     def about(self):
+        url = port = None
+        if self.httpd:
+            url, port = self.http.thread.url, self.httpd.thread.port
         port = self.httpd.thread.port if self.httpd else None
         return {"id": self.id,
                 "loglevel": LOG_LEVELS[self.loglevel],
                 "numc": self.numc,
                 "sup_interval": self.supervisor.interval,
                 "logfile": self.logfile,
-                "port": port}
+                "port": port,
+                "url": url}

@@ -20,7 +20,7 @@ def force_list(obj):
 
     If ``obj`` is a scalar value then a list with that value as
     sole element is returned, or
-    if ``obj` is a tuple then it is coerced into a list.
+    if ``obj`` is a tuple then it is coerced into a list.
 
     """
     if isinstance(obj, tuple):

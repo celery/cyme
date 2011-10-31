@@ -73,6 +73,9 @@ class Branch(CymeActor):
         def id(self):
             return self.agent.branch.id
 
+        def url(self):
+            return self.agent.branch.httpd.thread.url
+
         def about(self):
             return self.agent.branch.about()
 
@@ -88,6 +91,11 @@ class Branch(CymeActor):
 
     def get(self, id, **kw):
         return self.send_to_able("about", to=id, **kw)
+
+    def url(self, id=None, **kw):
+        if id:
+            return self.send_to_able("url", to=id, **kw)
+        return flatten(self.scatter("url", **kw))
 
     def shutdown(self, id):
         return self.send_to_able("shutdown", {"id": id}, to=id, nowait=True)
