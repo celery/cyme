@@ -24,6 +24,7 @@
     cyme.api.web
     cyme.models
     cyme.models.managers
+    cyme.status
     cyme.tasks
     cyme.management.commands.cyme
     cyme.management.commands.cyme_branch

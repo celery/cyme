@@ -8,9 +8,9 @@
 Synopsis
 ========
 
-Cyme is a distributed application to manage a cluster of Celery worker
-instances.  Every machine (physical or virtual) runs the ``cyme-branch``
-service.
+Cyme is the Celery instance manager, a distributed application that manages
+clusters of Celery worker instances.  Every machine (physical or virtual) runs
+the ``cyme-branch`` service.
 
 Requirements
 ============

@@ -31,6 +31,7 @@ app.conf.update(BROKER_TRANSPORT="memory",
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.coverage',
               'sphinx.ext.pngmath',
+              'sphinx.ext.intersphinx',
               'sphinxcontrib.issuetracker',
               'celerydocs']
 
@@ -81,6 +82,13 @@ latex_documents = [
   ('index', 'cyme.tex', ur'Cyme Documentation',
    ur'VMWare, Inc.', 'manual'),
 ]
+
+html_show_sphinx = False
+intersphinx_mapping = {
+        "http://docs.python.org/dev": None,
+        "http://kombu.readthedocs.org/en/latest/": None,
+        "http://django-celery.readthedocs.org/en/latest": None,
+}
 
 html_theme = "celery"
 html_theme_path = ["_theme"]
