@@ -2,7 +2,7 @@
  Cyme - Celery instance manager
 ===============================================
 
-:Version: 0.0.2
+:Version: 0.0.3
 :Web: http://celeryproject.org/
 :Download: http://pypi.python.org/pypi/cyme/
 :Keywords: celery, task queue, job queue, cloud, service
