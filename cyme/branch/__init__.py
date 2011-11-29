@@ -13,6 +13,7 @@ import logging
 from celery import current_app as celery
 from celery.utils import LOG_LEVELS, term
 from cl.g import Event
+from kombu.log import LogMixin
 from kombu.utils import gen_unique_id
 
 from . import signals
@@ -20,6 +21,18 @@ from .state import state
 from .thread import gThread
 
 from ..utils import find_symbol, instantiate
+
+
+class MockSup(LogMixin):
+
+    def __init__(self, thread, *args):
+        self.thread = thread
+
+    def start(self):
+        self.thread.start()
+
+    def stop(self):
+        return self.thread.stop()
 
 
 class Branch(gThread):
@@ -49,9 +62,10 @@ class Branch(gThread):
         self.ready_event = ready_event
         self.exit_request = Event()
         self.colored = colored or term.colored(enabled=False)
+        self.httpd = None
         gSup = find_symbol(self, self.intsup_cls)
         if not self.without_httpd:
-            self.httpd = gSup(instantiate(self, self.httpd_cls, addrport),
+            self.httpd = MockSup(instantiate(self, self.httpd_cls, addrport),
                               signals.httpd_ready)
         self.supervisor = gSup(instantiate(self, self.supervisor_cls,
                                 sup_interval), signals.supervisor_ready)
@@ -120,10 +134,14 @@ class Branch(gThread):
             signals.branch_shutdown_complete.send(sender=self)
 
     def about(self):
+        url = port = None
+        if self.httpd:
+            url, port = self.http.thread.url, self.httpd.thread.port
         port = self.httpd.thread.port if self.httpd else None
         return {"id": self.id,
                 "loglevel": LOG_LEVELS[self.loglevel],
                 "numc": self.numc,
                 "sup_interval": self.supervisor.interval,
                 "logfile": self.logfile,
-                "port": port}
+                "port": port,
+                "url": url}

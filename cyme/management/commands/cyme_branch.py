@@ -56,7 +56,7 @@ from celery import current_app as celery
 from celery.bin.base import daemon_options
 from celery.platforms import (create_pidlock, detached,
                               signals, set_process_title)
-from celery.utils.imports import instantiate
+from celery.utils import instantiate
 from cl.utils import cached_property, shortuuid
 
 from .base import CymeCommand, Option
@@ -79,12 +79,12 @@ BANNER = """
 
 class Command(CymeCommand):
     branch_cls = "cyme.branch.Branch"
-    default_detach_logfile = "branch.log"
+    default_detach_logfile = "b ranch.log"
     default_detach_pidfile = "branch.pid"
     name = "cyme-branch"
     args = '[optional port number, or ipaddr:port]'
     help = 'Starts a cyme branch'
-    option_list = CymeCommand.option_list + (
+    option_list = tuple(CymeCommand().option_list) + (
         Option('--broker', '-b',
             default=None, action="store", dest="broker",
             help="""Broker URL to use for the cyme message bus.\

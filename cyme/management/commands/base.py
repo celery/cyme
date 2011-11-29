@@ -8,7 +8,7 @@ import sys
 
 from optparse import make_option as Option  # noqa
 
-from celery.utils.imports import get_cls_by_name, instantiate
+from celery.utils import get_cls_by_name, instantiate
 from django.conf import settings
 from djcelery.management.base import CeleryCommand
 from kombu.log import LOG_LEVELS

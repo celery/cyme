@@ -58,7 +58,7 @@ class Env(object):
             settings.CYME_INSTANCE_DIR = self.instance_dir
 
     def setup_pool_limit(self, **kwargs):
-        from cl import pools
+        from kombu import pools
         from celery import current_app as celery
         limit = kwargs.get("limit", celery.conf.BROKER_POOL_LIMIT)
         pools.set_limit(limit if self.needs_eventlet else 1)

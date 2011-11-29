@@ -15,9 +15,9 @@ from celery import current_app as celery
 from celery import platforms
 from celery.bin.celeryd_multi import MultiTool
 from celery.utils.encoding import safe_str
-from cl.log import anon_logger
-from cl.pools import connections, producers
 from eventlet import Timeout
+from kombu.log import anon_logger
+from kombu.pools import connections, producers
 
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
@@ -76,8 +76,8 @@ class App(models.Model):
 
     name = models.CharField(_(u"name"), max_length=128, unique=True)
     broker = models.ForeignKey(Broker, null=True, blank=True)
-    arguments = models.TextField(_(u"arguments"))
-    extra_config = models.TextField(_(u"extra config"))
+    arguments = models.TextField(_(u"arguments"), null=True, blank=True)
+    extra_config = models.TextField(_(u"extra config"), null=True, blank=True)
 
     class Meta:
         verbose_name = _(u"app")
@@ -149,8 +149,8 @@ class Instance(models.Model):
     is_enabled = models.BooleanField(_(u"is enabled"), default=True)
     created_at = models.DateTimeField(_(u"created at"), auto_now_add=True)
     _broker = models.ForeignKey(Broker, null=True, blank=True)
-    arguments = models.TextField(_(u"arguments"))
-    extra_config = models.TextField(_(u"extra config"))
+    arguments = models.TextField(_(u"arguments"), null=True, blank=True)
+    extra_config = models.TextField(_(u"extra config"), null=True, blank=True)
 
     class Meta:
         verbose_name = _(u"instance")
