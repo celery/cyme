@@ -259,6 +259,7 @@ class LocalI(I):
     def __init__(self, *args, **kwargs):
         super(LocalI, self).__init__(*args, **kwargs)
         self.broker = kwargs.get("broker")
+        self.limit = kwargs.get("limit")
         from cyme.branch.controller import apps, instances, queues
         self.get_app = apps.get
         self.apps = apps.state
@@ -268,7 +269,8 @@ class LocalI(I):
     def all_branches(self):
         from cyme.branch.controller import Branch
         args = [self.broker] if self.broker else []
-        return Branch(connection=celery.broker_connection(*args)).all()
+        conn = celery.broker_connection(*args)
+        return Branch(connection=conn).all(limit=self.limit)
 
     def all_apps(self):
         return [app.as_dict() for app in self.apps.objects.all()]

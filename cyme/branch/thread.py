@@ -12,7 +12,7 @@ import os
 from Queue import Empty
 
 from cl.g import Event, spawn, timer, Queue
-from cl.log import LogMixin
+from kombu.log import LogMixin
 from eventlet import Timeout
 
 from . import signals
