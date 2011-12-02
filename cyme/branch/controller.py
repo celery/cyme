@@ -8,7 +8,6 @@ from __future__ import absolute_import
 
 from functools import partial
 
-from celery.actors import Actor, AwareAgent
 from cl.presence import AwareActorMixin, announce_after
 from cl.utils import flatten, first_or_raise, shortuuid
 from celery import current_app as celery
@@ -23,6 +22,7 @@ from .thread import gThread
 from .. import conf
 from .. import models
 from ..utils import cached_property, find_symbol, promise
+from ..utils.actors import Actor, AwareAgent
 
 
 class CymeActor(Actor, AwareActorMixin):
