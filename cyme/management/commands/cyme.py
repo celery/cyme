@@ -370,7 +370,7 @@ E.g.:
 
     cyme shell
     """
-    option_list = CymeCommand.option_list + (
+    option_list = tuple(CymeCommand().option_list) + (
        Option('-a', '--app',
               default=None, action="store", dest="app",
               help="application to use"),
