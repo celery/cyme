@@ -19,6 +19,14 @@ from anyjson import serialize
 from cl.exceptions import NoReplyError, NoRouteError
 from kombu.utils.encoding import safe_repr
 
+# Cross Origin Resource Sharing
+# See: http://www.w3.org/TR/cors/
+ACCESS_CONTROL = {
+        "Allow-Origin": "*",
+        "Allow-Methods": ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
+        "Max-Age": 86400,
+}
+
 
 class HttpResponseTimeout(HttpResponse):
     """The operation timed out."""
@@ -31,7 +39,18 @@ class HttpResponseNotImplemented(HttpResponse):
     status_code = http.NOT_IMPLEMENTED
 
 
-def JsonResponse(data, status=http.OK, **kwargs):
+def set_access_control_options(response, options=None):
+    options = dict(ACCESS_CONTROL, **options or {})
+    try:
+        options["Allow-Methods"] = ", ".join(options["Allow-Methods"] or [])
+    except KeyError:
+        pass
+
+    for key, value in ACCESS_CONTROL.iteritems():
+        response["Access-Control-%s" % (key, )] = value
+
+
+def JsonResponse(data, status=http.OK, access_control=None, **kwargs):
     """Returns a JSON encoded response."""
     if isinstance(data, (basestring, int, float, bool)):
         data = {"ok": data}
@@ -40,6 +59,7 @@ def JsonResponse(data, status=http.OK, **kwargs):
     kwargs.setdefault("content_type", "application/json")
     response = HttpResponse(serialize(data),
                             status=status, **kwargs)
+    set_access_control_options(response, access_control)
     response.csrf_exempt = True
     return response
 Accepted = partial(JsonResponse, status=http.ACCEPTED)
