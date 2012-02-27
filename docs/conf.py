@@ -10,9 +10,11 @@ this = os.path.dirname(os.path.abspath(__file__))
 # absolute, like shown here.
 sys.path.append(os.path.join(os.pardir, "tests"))
 sys.path.append(os.path.join(this, "_ext"))
-from django.core.management import setup_environ
-import settings
-setup_environ(settings)
+settings = os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
+import django
+if django.VERSION < (1, 4):
+    from django.core.management import setup_environ
+    setup_environ(__import__(settings))
 import cyme
 
 

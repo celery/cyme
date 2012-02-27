@@ -11,7 +11,10 @@ from __future__ import with_statement
 from .. import __version__, DEBUG, DEBUG_BLOCK, DEBUG_READERS
 
 import getpass
+import os
 import sys
+
+from importlib import import_module
 
 from kombu.utils import cached_property
 
@@ -49,9 +52,12 @@ class Env(object):
         from django.conf import settings
         from .. import settings as default_settings
         from ..utils import imerge_settings
+        mod = os.environ.setdefault("DJANGO_SETTINGS_MODULE",
+                                    default_settings.__name__)
 
         if not settings.configured:
-            self.management.setup_environ(default_settings)
+            if django.VERSION < (1, 4):
+                self.management.setup_environ(import_module(mod))
         else:
             imerge_settings(settings, default_settings)
         if self.instance_dir:
