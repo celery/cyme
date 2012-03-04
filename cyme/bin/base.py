@@ -10,6 +10,7 @@ from __future__ import with_statement
 
 from .. import __version__, DEBUG, DEBUG_BLOCK, DEBUG_READERS
 
+import django
 import getpass
 import os
 import sys

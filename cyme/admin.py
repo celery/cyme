@@ -10,7 +10,7 @@ from django.utils.html import escape
 from django.utils.translation import ugettext_lazy as _
 
 from djcelery.admin_utils import action, display_field, fixedwidth
-from djcelery.utils import naturaldate
+from djcelery.humanize import naturaldate
 
 from .models import Broker, Instance, Queue
 from .branch.supervisor import supervisor
