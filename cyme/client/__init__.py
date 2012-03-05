@@ -110,6 +110,7 @@ from dictshield import fields
 from . import base
 from .base import Path
 from ..utils import cached_property
+from ..utils.dictshield import ListField
 
 # XXX `requests` does not currently seem to support using the
 #     data argument with PUT requests.
@@ -122,7 +123,7 @@ class Instance(base.Model):
     min_concurrency = fields.IntField()
     max_concurrency = fields.IntField()
     is_enabled = fields.BooleanField()
-    queue_names = fields.ListField(fields.StringField(max_length=200))
+    queue_names = ListField(fields.StringField(max_length=200))
     arguments = fields.StringField(max_length=200)
     extra_config = fields.StringField(max_length=200)
 
