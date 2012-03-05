@@ -154,12 +154,9 @@ class Client(Base):
                              params=params, data=data)
         data = None
         if DEBUG:
-            data = r.read()
-            print("<RES> %r" % (data, ))  # noqa+
+            print("<RES> %r" % (r.text, ))  # noqa+
         if r.ok:
-            if data is None:
-                data = r.read()
-            ret = self.deserialize(data)
+            ret = self.deserialize(r.text)
             if isinstance(ret, dict):
                 return type(ret)
             return ret
