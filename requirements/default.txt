@@ -6,5 +6,4 @@ django-celery
 requests
 dictshield
 progressbar
--e git://github.com/ask/kombu.git@2.0-devel#egg=kombu
--e git://github.com/ask/celery.git@3.0-devel#egg=celery
+unipath
