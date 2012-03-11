@@ -136,7 +136,7 @@ class Branch(gThread):
     def about(self):
         url = port = None
         if self.httpd:
-            url, port = self.http.thread.url, self.httpd.thread.port
+            url, port = self.httpd.thread.url, self.httpd.thread.port
         port = self.httpd.thread.port if self.httpd else None
         return {"id": self.id,
                 "loglevel": LOG_LEVELS[self.loglevel],

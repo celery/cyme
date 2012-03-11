@@ -280,4 +280,7 @@ class Client(base.Client):
         return self.__class__(url=self.url, app=app, info=info)
 
     def __repr__(self):
-        return "<Client: %r>" % (self.build_url(""), )
+        url = self.build_url('')
+        if self.app:
+            return "<App: %r>" % url
+        return "<Client: %r>" % url
