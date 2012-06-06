@@ -22,7 +22,7 @@ Requirements
 * `django`_
 * `django-celery`_
 
-.. _`cl`: http://github.com/ask/cl
+.. _`cl`: http://github.com/celery/cl
 .. _`eventlet`: http://pypi.python.org/pypi/eventlet
 .. _`django`: http://djangoproject.com/
 .. _`django-celery`: http://pypi.python.org/pypi/django-celery`
