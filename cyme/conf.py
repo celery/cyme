@@ -7,5 +7,5 @@ from django.conf import settings
 from .utils import Path
 
 CYME_INSTANCE_DIR = Path(getattr(settings,
-                        "CYME_INSTANCE_DIR", "instances")).absolute()
-CYME_DEFAULT_POOL = getattr(settings, "CYME_DEFAULT_POOL", "processes")
+                        'CYME_INSTANCE_DIR', 'instances')).absolute()
+CYME_DEFAULT_POOL = getattr(settings, 'CYME_DEFAULT_POOL', 'processes')

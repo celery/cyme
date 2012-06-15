@@ -41,11 +41,11 @@ def find_package(mod, _s=None):
 
     Then the following examples returns::
 
-        >>> find_package(import_module("package"))
-        "package"
-        >>> find_package(import_module("package.foo"))
-        "package"
-        >>> find_package(import_module("package.bar.baz"))
+        >>> find_package(import_module('package'))
+        'package'
+        >>> find_package(import_module('package.foo'))
+        'package'
+        >>> find_package(import_module('package.bar.baz'))
         >>> package.bar
 
     Note that this does not look at the file system,
@@ -71,13 +71,13 @@ def find_symbol(origin, sym):
     E.g. if ``origin`` is an object in the module ``package.foo``,
     then::
 
-        >>> find_symbol(origin, ".bar.my_symbol")
+        >>> find_symbol(origin, '.bar.my_symbol')
 
     will return the object ``my_symbol`` from module ``package.bar``.
 
     """
     return get_cls_by_name(sym,
-                package=find_package(getattr(origin, "__module__", None
+                package=find_package(getattr(origin, '__module__', None
                                         or origin.__class__.__module__)))
 
 
@@ -91,9 +91,9 @@ class Path(_Path):
     """:class:`unipath.Path` version that can use the ``/`` operator
     to combine paths::
 
-        >>> p = Path("foo")
-        >>> p / "bar" / "baz"
-        Path("foo/bar/baz")
+        >>> p = Path('foo')
+        >>> p / 'bar' / 'baz'
+        Path('foo/bar/baz')
     """
 
     def __div__(self, other):
@@ -109,7 +109,7 @@ def imerge_settings(a, b):
             setattr(a, key, value)
 
 
-def setup_logging(loglevel="INFO", logfile=None):
+def setup_logging(loglevel='INFO', logfile=None):
     """Setup logging using ``loglevel`` and ``logfile``.
 
     stderr will be used if not logfile provided.
@@ -121,15 +121,15 @@ def setup_logging(loglevel="INFO", logfile=None):
     return celery.log.setup_logging_subsystem(loglevel, logfile)
 
 
-def redirect_stdouts_to_logger(loglevel="INFO", logfile=None,
-        redirect_level="WARNING", stdout=False, stderr=True):
+def redirect_stdouts_to_logger(loglevel='INFO', logfile=None,
+        redirect_level='WARNING', stdout=False, stderr=True):
     """See :meth:`celery.log.Log.redirect_stdouts_to_logger`."""
     # XXX Currently unused.
     log = celery.log
     handled = setup_logging(loglevel, logfile)
     if not handled:
         return log.redirect_stdouts_to_logger(
-                    log.get_default_logger(name="cyme"),
+                    log.get_default_logger(name='cyme'),
                     redirect_level, stdout=stdout, stderr=stderr)
 
 
@@ -148,7 +148,7 @@ class LazyProgressBar(object):
                 # implicit start
                 self.current = 1
                 if self.description:
-                    sys.stderr.write("\n\n%s\n" % (self.description, ))
+                    sys.stderr.write('\n\n%s\n' % (self.description, ))
                 return self._bar   ## noqa
             self.current += i
             if self.current >= self.size:

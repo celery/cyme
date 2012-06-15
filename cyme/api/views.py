@@ -9,9 +9,9 @@ from celery import current_app as celery
 from celery.result import AsyncResult
 
 from . import web
-from ..branch.controller import apps, branches, instances, queues
-from ..tasks import webhook
-from ..utils import uuid
+from cyme.branch.controller import apps, branches, instances, queues
+from cyme.tasks import webhook
+from cyme.utils import uuid
 
 
 class Branch(web.ApiView):
@@ -27,8 +27,8 @@ class App(web.ApiView):
 
     def put(self, request, app=None):
         return self.Created(apps.add(app or uuid(),
-                            **self.params("broker", "arguments",
-                                          "extra_config")))
+                            **self.params('broker', 'arguments',
+                                          'extra_config')))
     post = put
 
     def delete(self, request, app):
@@ -46,12 +46,12 @@ class Instance(web.ApiView):
     def post(self, request, app, name=None, nowait=False):
         return self.Created(instances.add(name=name, app=app,
                                       nowait=nowait,
-                                      **self.params("broker", "pool",
-                                                    "arguments",
-                                                    "extra_config")))
+                                      **self.params('broker', 'pool',
+                                                    'arguments',
+                                                    'extra_config')))
 
     def put(self, *args, **kwargs):
-        return self.NotImplemented("Operation is not idempotent: use POST")
+        return self.NotImplemented('Operation is not idempotent: use POST')
 
 
 class Consumer(web.ApiView):
@@ -77,13 +77,13 @@ class Queue(web.ApiView):
 
     def put(self, request, app, name, nowait=False):
         return self.Created(queues.add(name, nowait=nowait,
-                      **self.params("exchange", "exchange_type",
-                                    "routing_key", "options")))
+                      **self.params('exchange', 'exchange_type',
+                                    'routing_key', 'options')))
     post = put
 
 
 class apply(web.ApiView):
-    get_methods = frozenset(["GET", "HEAD"])
+    get_methods = frozenset(['GET', 'HEAD'])
     re_find_queue = re.compile(r'/?(.+?)/?$')
     re_url_in_path = re.compile(r'(.+?/)(\w+://)(.+)')
 
@@ -104,10 +104,10 @@ class apply(web.ApiView):
         pargs = {}
         if queue:
             queue = queues.get(queue)
-            pargs.update(exchange=queue["exchange"],
-                         exchange_type=queue["exchange_type"],
-                         routing_key=queue["routing_key"])
-        params = gd(method) if method in self.get_methods else gd("GET")
+            pargs.update(exchange=queue['exchange'],
+                         exchange_type=queue['exchange_type'],
+                         routing_key=queue['routing_key'])
+        params = gd(method) if method in self.get_methods else gd('GET')
         data = gd(method) if method not in self.get_methods else None
 
         with broker.producers.acquire(block=True) as producer:
@@ -117,10 +117,10 @@ class apply(web.ApiView):
             result = webhook.apply_async((url, method, params, data),
                                          publisher=publisher, retry=True,
                                          **pargs)
-            return self.Accepted({"uuid": result.task_id, "url": url,
-                                  "queue": queue, "method": method,
-                                  "params": params, "data": data,
-                                  "broker": producer.connection.as_uri()})
+            return self.Accepted({'uuid': result.task_id, 'url': url,
+                                  'queue': queue, 'method': method,
+                                  'params': params, 'data': data,
+                                  'broker': producer.connection.as_uri()})
 
         def _parse_path_containing_url(self, rest):
             m = self.re_url_in_path.match(rest)
@@ -136,12 +136,12 @@ class autoscale(web.ApiView):
 
     def get(self, request, app, name):
         instance = instances.get(name)
-        return {"max": instance["max_concurrency"],
-                "min": instance["min_concurrency"]}
+        return {'max': instance['max_concurrency'],
+                'min': instance['min_concurrency']}
 
     def post(self, request, app, name, nowait=False):
         return self.Ok(instances.autoscale(name, nowait=nowait,
-                        **self.params(("max", int), ("min", int))))
+                        **self.params(('max', int), ('min', int))))
 
 
 @web.simple_get
@@ -151,19 +151,19 @@ def instance_stats(self, request, app, name):
 
 @web.simple_get
 def task_state(self, request, app, uuid):
-    return {"state": AsyncResult(uuid).state}
+    return {'state': AsyncResult(uuid).state}
 
 
 @web.simple_get
 def task_result(self, request, app, uuid):
-    return {"result": AsyncResult(uuid).result}
+    return {'result': AsyncResult(uuid).result}
 
 
 @web.simple_get
 def task_wait(self, request, app, uuid):
-    return {"result": AsyncResult(uuid).get()}
+    return {'result': AsyncResult(uuid).get()}
 
 
 @web.simple_get
 def ping(self, request):
-    return {"ok": "pong"}
+    return {'ok': 'pong'}

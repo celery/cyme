@@ -89,10 +89,10 @@ class gThread(LogMixin):
             self._ping_queue = Queue()
             g = self.g = self.spawn(self._crashsafe, self.run)
             g.link(self._on_exit)
-            self.debug("%s spawned", self.name)
+            self.debug('%s spawned', self.name)
             signals.thread_post_start.send(sender=self)
             return g
-        raise self.AlreadyStarted("can't start thread twice")
+        raise self.AlreadyStarted('cannot start thread twice')
 
     def stop(self, join=True, timeout=1e100):
         """Shutdown the thread.
@@ -106,11 +106,11 @@ class gThread(LogMixin):
         :keyword timeout: Timeout for join (default is 1e+100).
 
         """
-        self.debug("shutdown initiated")
+        self.debug('shutdown initiated')
         signals.thread_pre_shutdown.send(sender=self)
         self.should_stop = True
         for entry in self._timers:
-            self.debug("killing timer %r" % (entry, ))
+            self.debug('killing timer %r' % (entry, ))
             entry.cancel()
             entry.kill()
         if join and self.joinable:
@@ -118,7 +118,7 @@ class gThread(LogMixin):
                 self.join(timeout)
             except self.Timeout:
                 self.error(
-                    "exceeded exit timeout (%s), will try to kill", timeout)
+                    'exceeded exit timeout (%s), will try to kill', timeout)
                 self.kill()
         self.after()
         signals.thread_post_shutdown.send(sender=self)
@@ -135,7 +135,7 @@ class gThread(LogMixin):
         """
         with self.Timeout(timeout):
             signals.thread_pre_join.send(sender=self, timeout=timeout)
-            self.debug("joining (%s)", timeout)
+            self.debug('joining (%s)', timeout)
             self._exit_event.wait()
             signals.thread_post_join.send(sender=self)
 
@@ -170,12 +170,12 @@ class gThread(LogMixin):
         try:
             fun(*args, **kwargs)
             signals.thread_exit.send(sender=self)
-            self.debug("exiting")
+            self.debug('exiting')
         except Exception, exc:
-            self.error("Thread crash detected: %r", exc)
+            self.error('Thread crash detected: %r', exc)
             os._exit(0)
         except self.Timeout, exc:
-            self.error("Thread raised timeout: %r", exc)
+            self.error('Thread raised timeout: %r', exc)
             os._exit(0)
 
     def spawn(self, fun, *args, **kwargs):

@@ -78,41 +78,41 @@ BANNER = """
 
 
 class Command(CymeCommand):
-    branch_cls = "cyme.branch.Branch"
-    default_detach_logfile = "b ranch.log"
-    default_detach_pidfile = "branch.pid"
-    name = "cyme-branch"
+    branch_cls = 'cyme.branch.Branch'
+    default_detach_logfile = 'b ranch.log'
+    default_detach_pidfile = 'branch.pid'
+    name = 'cyme-branch'
     args = '[optional port number, or ipaddr:port]'
     help = 'Starts a cyme branch'
     option_list = tuple(CymeCommand().option_list) + (
         Option('--broker', '-b',
-            default=None, action="store", dest="broker",
+            default=None, action='store', dest='broker',
             help="""Broker URL to use for the cyme message bus.\
                     Default is amqp://guest:guest@localhost:5672//"""),
         Option('--detach',
-            default=False, action="store_true", dest="detach",
-            help="Detach and run in the background."),
-        Option("-i", "--id",
-               default=None, action="store", dest="id",
-               help="Set explicit branch id."),
-        Option("-X", "--no-interaction",
-               default=False, action="store_true", dest="no_interaction",
+            default=False, action='store_true', dest='detach',
+            help='Detach and run in the background.'),
+        Option('-i', '--id',
+               default=None, action='store', dest='id',
+               help='Set explicit branch id.'),
+        Option('-X', '--no-interaction',
+               default=False, action='store_true', dest='no_interaction',
                help="Don't ask questions"),
-        Option("--without-httpd",
-               default=False, action="store_true", dest="without_httpd",
-               help="Disable HTTP server"),
+        Option('--without-httpd',
+               default=False, action='store_true', dest='without_httpd',
+               help='Disable HTTP server'),
        Option('-l', '--loglevel',
-              default="WARNING", action="store", dest="loglevel",
-              help="Choose between DEBUG/INFO/WARNING/ERROR/CRITICAL"),
+              default='WARNING', action='store', dest='loglevel',
+              help='Choose between DEBUG/INFO/WARNING/ERROR/CRITICAL'),
        Option('-D', '--instance-dir',
-              default=None, action="store", dest="instance_dir",
-              help="Custom instance dir. Default is instances/"),
+              default=None, action='store', dest='instance_dir',
+              help='Custom instance dir. Default is instances/'),
        Option('-C', '--numc',
-              default=2, action="store", type="int", dest="numc",
-              help="Number of controllers to start.  Default is 2"),
+              default=2, action='store', type='int', dest='numc',
+              help='Number of controllers to start.  Default is 2'),
        Option('--sup-interval',
-              default=60, action="store", type="int", dest="sup_interval",
-              help="Supervisor schedule interval.  Default is every minute."),
+              default=60, action='store', type='int', dest='sup_interval',
+              help='Supervisor schedule interval.  Default is every minute.'),
     ) + daemon_options(default_detach_pidfile)
 
     _startup_pbar = None
@@ -120,19 +120,19 @@ class Command(CymeCommand):
 
     def handle(self, *args, **kwargs):
         kwargs = self.prepare_options(**kwargs)
-        self.loglevel = kwargs.get("loglevel")
-        self.logfile = kwargs.get("logfile")
+        self.loglevel = kwargs.get('loglevel')
+        self.logfile = kwargs.get('logfile')
         self.enter_instance_dir()
         self.env.syncdb(interactive=False)
         self.install_cry_handler()
         self.install_rdb_handler()
-        self.colored = celery.log.colored(kwargs.get("logfile"))
+        self.colored = celery.log.colored(kwargs.get('logfile'))
         self.branch = instantiate(self.branch_cls, *args,
                                  colored=self.colored, **kwargs)
         self.connect_signals()
         print(str(self.colored.cyan(self.banner())))
 
-        self.detached = kwargs.get("detach", False)
+        self.detached = kwargs.get('detach', False)
         return (self._detach if self.detached else self._start)(**kwargs)
 
     def setup_default_env(self, env):
@@ -140,18 +140,18 @@ class Command(CymeCommand):
         env.setup_pool_limit()
 
     def stop(self):
-        self.set_process_title("shutdown...")
+        self.set_process_title('shutdown...')
 
     def on_branch_ready(self, sender=None, **kwargs):
         if self._startup_pbar:
             self._startup_pbar.finish()
             self._startup_pbar = None
         pid = os.getpid()
-        self.set_process_title("ready")
+        self.set_process_title('ready')
         if not self.detached and \
-                not self.branch.is_enabled_for("INFO"):
-            print("(%s) branch ready" % (pid, ))
-        sender.info("[READY] (%s)" % (pid, ))
+                not self.branch.is_enabled_for('INFO'):
+            print('(%s) branch ready' % (pid, ))
+        sender.info('[READY] (%s)' % (pid, ))
 
     def on_branch_shutdown(self, sender=None, **kwargs):
         if self._shutdown_pbar:
@@ -160,13 +160,13 @@ class Command(CymeCommand):
 
     def _detach(self, logfile=None, pidfile=None, uid=None, gid=None,
             umask=None, working_directory=None, **kwargs):
-        print("detaching... [pidfile=%s logfile=%s]" % (pidfile, logfile))
+        print('detaching... [pidfile=%s logfile=%s]' % (pidfile, logfile))
         with detached(logfile, pidfile, uid, gid, umask, working_directory):
             return self._start(pidfile=pidfile)
 
     def _start(self, pidfile=None, **kwargs):
         self.setup_logging(logfile=self.logfile, loglevel=self.loglevel)
-        self.set_process_title("boot")
+        self.set_process_title('boot')
         self.install_signal_handlers()
         if pidfile:
             pidlock = create_pidlock(pidfile).acquire()
@@ -183,31 +183,31 @@ class Command(CymeCommand):
         try:
             pres_interval = con[0].thread.presence.interval
         except AttributeError:
-            pres_interval = "(disabled)"
+            pres_interval = '(disabled)'
         sup = branch.supervisor.thread
-        return BANNER % {"id": branch.id,
-                         "version": self.__version__,
-                         "broker": branch.connection.as_uri(),
-                         "loglevel": self.LOG_LEVELS[branch.loglevel],
-                         "logfile": branch.logfile or "[stderr]",
-                         "addr": addr or "localhost",
-                         "port": port or 8000,
-                         "sup.interval": sup.interval,
-                         "presence.interval": pres_interval,
-                         "controllers": len(con),
-                         "instance_dir": self.instance_dir}
+        return BANNER % {'id': branch.id,
+                         'version': self.__version__,
+                         'broker': branch.connection.as_uri(),
+                         'loglevel': self.LOG_LEVELS[branch.loglevel],
+                         'logfile': branch.logfile or '[stderr]',
+                         'addr': addr or 'localhost',
+                         'port': port or 8000,
+                         'sup.interval': sup.interval,
+                         'presence.interval': pres_interval,
+                         'controllers': len(con),
+                         'instance_dir': self.instance_dir}
 
     def install_signal_handlers(self):
 
         def raise_SystemExit(signum, frame):
             raise SystemExit()
 
-        for signal in ("TERM", "INT"):
+        for signal in ('TERM', 'INT'):
             signals[signal] = raise_SystemExit
 
     def set_process_title(self, info):
-        set_process_title("%s#%s" % (self.name, shortuuid(self.branch.id)),
-                          "%s (-D %s)" % (info, self.instance_dir))
+        set_process_title('%s#%s' % (self.name, shortuuid(self.branch.id)),
+                          '%s (-D %s)' % (info, self.instance_dir))
 
     def repr_controller_id(self, c):
         return shortuuid(c) + c[-2:]
@@ -224,7 +224,7 @@ class Command(CymeCommand):
 
     def setup_shutdown_progress(self, sender=None, **kwargs):
         from cyme.utils import LazyProgressBar
-        if sender.is_enabled_for("DEBUG"):
+        if sender.is_enabled_for('DEBUG'):
             return
         c = self.colored
         sigs = (self.signals.thread_pre_shutdown,
@@ -234,14 +234,14 @@ class Command(CymeCommand):
         estimate = (len(sigs) * ((len(sender.components) + 1) * 2)
                     + sum(c.thread.extra_shutdown_steps
                             for c in sender.components))
-        text = c.white("Shutdown...").embed()
+        text = c.white('Shutdown...').embed()
         p = self._shutdown_pbar = LazyProgressBar(estimate, text,
                                                   c.reset().embed())
         [sig.connect(p.step) for sig in sigs]
 
     def setup_startup_progress(self, sender=None, **kwargs):
         from cyme.utils import LazyProgressBar
-        if sender.is_enabled_for("INFO"):
+        if sender.is_enabled_for('INFO'):
             return
         c = self.colored
         tsigs = (self.signals.thread_pre_start,
@@ -253,11 +253,11 @@ class Command(CymeCommand):
 
         estimate = (len(tsigs) + ((len(sender.components) + 10) * 2)
                      + len(osigs))
-        text = c.white("Startup...").embed()
+        text = c.white('Startup...').embed()
         p = self._startup_pbar = LazyProgressBar(estimate, text,
                                                  c.reset().embed())
         [sig.connect(p.step) for sig in tsigs + osigs]
 
     @cached_property
     def signals(self):
-        return import_module("cyme.branch.signals")
+        return import_module('cyme.branch.signals')

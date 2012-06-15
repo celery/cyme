@@ -14,7 +14,7 @@ from anyjson import serialize
 from celery import current_app as celery
 from djcelery.managers import ExtendedManager
 
-from ..utils import cached_property, uuid
+from cyme.utils import cached_property, uuid
 
 
 class BrokerManager(ExtendedManager):
@@ -30,15 +30,15 @@ class BrokerManager(ExtendedManager):
 class AppManager(ExtendedManager):
 
     def from_json(self, name=None, broker=None):
-        return {"name": name, "broker": self.get_broker(broker)}
+        return {'name': name, 'broker': self.get_broker(broker)}
 
     def recreate(self, name=None, broker=None, arguments=None,
             extra_config=None):
         d = self.from_json(name, broker)
-        return self.get_or_create(name=d["name"],
-                                  defaults={"broker": d["broker"],
-                                            "arguments": arguments,
-                                            "extra_config": extra_config})[0]
+        return self.get_or_create(name=d['name'],
+                                  defaults={'broker': d['broker'],
+                                            'arguments': arguments,
+                                            'extra_config': extra_config})[0]
 
     def instance(self, name=None, broker=None):
         return self.model(**self.from_json(name, broker))
@@ -49,12 +49,12 @@ class AppManager(ExtendedManager):
     def add(self, name=None, broker=None, arguments=None, extra_config=None):
         broker = self.get_broker(broker) if broker else None
         return self.get_or_create(name=name, defaults={
-                "broker": broker,
-                "arguments": arguments,
-                "extra_config": extra_config})[0]
+                'broker': broker,
+                'arguments': arguments,
+                'extra_config': extra_config})[0]
 
     def get_default(self):
-        return self.get_or_create(name="cyme")[0]
+        return self.get_or_create(name='cyme')[0]
 
     @cached_property
     def Brokers(self):
@@ -68,7 +68,7 @@ class InstanceManager(ExtendedManager):
 
     def _maybe_queues(self, queues):
         if isinstance(queues, basestring):
-            queues = queues.split(",")
+            queues = queues.split(',')
         return [(queue.name if isinstance(queue, self.model.Queue) else queue)
                     for queue in queues]
 
@@ -99,13 +99,13 @@ class InstanceManager(ExtendedManager):
         return instance
 
     def remove(self, name):
-        return self._action(name, "delete")
+        return self._action(name, 'delete')
 
     def enable(self, name):
-        return self._action(name, "enable")
+        return self._action(name, 'enable')
 
     def disable(self, name):
-        return self._action(name, "disable")
+        return self._action(name, 'disable')
 
     def remove_queue_from_instances(self, queue, **query):
         instances = []

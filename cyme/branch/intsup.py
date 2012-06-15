@@ -44,10 +44,10 @@ class gSup(gThread):
         self.signal.disconnect(self._on_thread_ready)
 
     def run(self):
-        self.debug("starting")
+        self.debug('starting')
         interval = self.interval
         thread = self.start_wait_child()
-        self.info("started")
+        self.info('started')
         timeout = self.timeout
         critical = self.critical
 
@@ -68,4 +68,4 @@ class gSup(gThread):
 
     @property
     def logger_name(self):
-        return "%s<%s>" % (self.name, self.thread.name)
+        return '%s<%s>' % (self.name, self.thread.name)

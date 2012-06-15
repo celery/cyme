@@ -13,7 +13,7 @@ from eventlet.event import Event
 from .signals import supervisor_ready
 from .thread import gThread
 
-from ..status import Status
+from cyme.status import Status
 
 __current = None
 
@@ -52,7 +52,7 @@ class Supervisor(gThread, Status):
     """
     #: Limit instance restarts to 1/m, so out of control
     #: instances will be disabled
-    restart_max_rate = "1/m"
+    restart_max_rate = '1/m'
 
     #: Default interval_max for ensure_connection is 30 secs.
     wait_after_broker_revived = 35.0
@@ -83,14 +83,14 @@ class Supervisor(gThread, Status):
         self.respond_to_ping()
         with self._pause_mutex:
             if not self.paused:
-                self.debug("pausing")
+                self.debug('pausing')
                 self.paused = True
 
     def resume(self):
         """Resume all timers."""
         with self._pause_mutex:
             if self.paused:
-                self.debug("resuming")
+                self.debug('resuming')
                 self.paused = False
 
     def verify(self, instances, ratelimit=False):
@@ -103,7 +103,7 @@ class Supervisor(gThread, Status):
 
         """
         return self._request(instances, self._do_verify_instance,
-                            {"ratelimit": ratelimit})
+                            {'ratelimit': ratelimit})
 
     def restart(self, instances):
         """Restart one or more instances.
@@ -143,7 +143,7 @@ class Supervisor(gThread, Status):
 
     def run(self):
         queue = self.queue
-        self.info("started")
+        self.info('started')
         supervisor_ready.send(sender=self)
         while not self.should_stop:
             try:
@@ -152,13 +152,13 @@ class Supervisor(gThread, Status):
                 self.respond_to_ping()
                 continue
             self.respond_to_ping()
-            self.debug("wake-up")
+            self.debug('wake-up')
             try:
                 for instance in instances:
                     try:
                         action(instance, **kwargs)
                     except Exception, exc:
-                        self.error("Event caused exception: %r", exc)
+                        self.error('Event caused exception: %r', exc)
             finally:
                 event.send(True)
 

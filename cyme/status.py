@@ -16,7 +16,7 @@ from .branch.state import state
 
 class Status(LogMixin):
     paused = False
-    restart_max_rate = "100/s"
+    restart_max_rate = '100/s'
 
     def __init__(self):
         self._buckets = defaultdict(lambda: TokenBucket(
@@ -47,7 +47,7 @@ class Status(LogMixin):
 
         def errback(self, exc, interval):
             self.error(
-                "Error while trying to broadcast %r: %r\n" % (fun, exc))
+                'Error while trying to broadcast %r: %r\n' % (fun, exc))
             self.pause()
 
         return _insured(instance.broker.pool, fun, args, kwargs,
@@ -71,17 +71,17 @@ class Status(LogMixin):
     def _verify_restart_instance(self, instance):
         """Restarts the instance, and verifies that the instance is
         actually able to start."""
-        self.info("%s instance.restart" % (instance, ))
+        self.info('%s instance.restart' % (instance, ))
         instance.restart()
         is_alive = False
         for i in fxrangemax(0.1, 1, 0.4, 30):
-            self.info("%s pingWithTimeout: %s", instance, i)
+            self.info('%s pingWithTimeout: %s', instance, i)
             self.respond_to_ping()
             if self.insured(instance, instance.responds_to_ping, timeout=i):
                 is_alive = True
                 break
         if is_alive:
-            self.info("%s successfully restarted" % (instance, ))
+            self.info('%s successfully restarted' % (instance, ))
         else:
             self.info("%s instance doesn't respond after restart" % (
                     instance, ))
@@ -99,7 +99,7 @@ class Status(LogMixin):
                     self._verify_restart_instance(instance)
                 else:
                     self.error(
-                        "%s instance.disabled: Restarted too often", instance)
+                        '%s instance.disabled: Restarted too often', instance)
                     instance.disable()
                     self._buckets.pop(instance.restart)
         else:
@@ -107,11 +107,11 @@ class Status(LogMixin):
             self._verify_restart_instance(instance)
 
     def _do_stop_instance(self, instance):
-        self.info("%s instance.shutdown" % (instance, ))
+        self.info('%s instance.shutdown' % (instance, ))
         instance.stop()
 
     def _do_stop_verify_instance(self, instance):
-        self.info("%s instance.shutdown" % (instance, ))
+        self.info('%s instance.shutdown' % (instance, ))
         instance.stop_verify()
 
     def _do_verify_instance(self, instance, ratelimit=False):
@@ -136,13 +136,13 @@ class Status(LogMixin):
 
         for queue in consuming_from ^ queues:
             if queue in queues:
-                self.info("%s: instance.consume_from: %s" % (instance, queue))
+                self.info('%s: instance.consume_from: %s' % (instance, queue))
                 self.ib(instance.add_queue, queue)
             elif queue == instance.direct_queue:
                 pass
             else:
                 self.info(
-                    "%s: instance.cancel_consume: %s" % (instance, queue))
+                    '%s: instance.cancel_consume: %s' % (instance, queue))
                 self.ib(instance.cancel_queue, queue)
 
     def _verify_instance_processes(self, instance):
@@ -150,10 +150,10 @@ class Status(LogMixin):
         instance matches that which is specified in the model."""
         max, min = instance.max_concurrency, instance.min_concurrency
         try:
-            current = self.insured(instance, instance.stats)["autoscaler"]
+            current = self.insured(instance, instance.stats)['autoscaler']
         except (TypeError, KeyError):
             return
-        if max != current["max"] or min != current["min"]:
-            self.info("%s: instance.set_autoscale max=%r min=%r" % (
+        if max != current['max'] or min != current['min']:
+            self.info('%s: instance.set_autoscale max=%r min=%r' % (
                 instance, max, min))
             self.ib(instance.autoscale, max, min)

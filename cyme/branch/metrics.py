@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import os
 from math import ceil
 
-from ..utils import cached_property
+from cyme.utils import cached_property
 
 
 def load_average():

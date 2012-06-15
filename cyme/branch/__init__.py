@@ -20,7 +20,7 @@ from . import signals
 from .state import state
 from .thread import gThread
 
-from ..utils import find_symbol, instantiate
+from cyme.utils import find_symbol, instantiate
 
 
 class MockSup(LogMixin):
@@ -36,22 +36,22 @@ class MockSup(LogMixin):
 
 
 class Branch(gThread):
-    controller_cls = ".controller.Controller"
-    httpd_cls = ".httpd.HttpServer"
-    supervisor_cls = ".supervisor.Supervisor"
-    intsup_cls = ".intsup.gSup"
+    controller_cls = '.controller.Controller'
+    httpd_cls = '.httpd.HttpServer'
+    supervisor_cls = '.supervisor.Supervisor'
+    intsup_cls = '.intsup.gSup'
 
     _components_ready = {}
     _components_shutdown = {}
     _presence_ready = 0
     _ready = False
 
-    def __init__(self, addrport="", id=None, loglevel=logging.INFO,
+    def __init__(self, addrport='', id=None, loglevel=logging.INFO,
             logfile=None, without_httpd=False, numc=2, sup_interval=None,
             ready_event=None, colored=None, **kwargs):
         self.id = id or gen_unique_id()
         if isinstance(addrport, basestring):
-            addr, _, port = addrport.partition(":")
+            addr, _, port = addrport.partition(':')
             addrport = (addr, int(port) if port else 8000)
         self.addrport = addrport
         self.connection = celery.broker_connection()
@@ -70,7 +70,7 @@ class Branch(gThread):
         self.supervisor = gSup(instantiate(self, self.supervisor_cls,
                                 sup_interval), signals.supervisor_ready)
         self.controllers = [gSup(instantiate(self, self.controller_cls,
-                                   id="%s.%s" % (self.id, i),
+                                   id='%s.%s' % (self.id, i),
                                    connection=self.connection,
                                    branch=self),
                                  signals.controller_ready)
@@ -80,7 +80,7 @@ class Branch(gThread):
         self._components_ready = dict(zip([z.thread for z in c],
                                           [False] * len(c)))
         for controller in self.controllers:
-            if hasattr(controller.thread, "presence"):
+            if hasattr(controller.thread, 'presence'):
                 self._components_ready[controller.thread.presence] = False
         self._components_shutdown = dict(self._components_ready)
         super(Branch, self).__init__()
@@ -110,7 +110,7 @@ class Branch(gThread):
         state.is_branch = True
         signals.branch_startup_request.send(sender=self)
         self.prepare_signals()
-        self.info("Starting with id %r", self.id)
+        self.info('Starting with id %r', self.id)
         [g.start() for g in self.components]
         self.exit_request.wait()
 
@@ -126,7 +126,7 @@ class Branch(gThread):
                 except KeyboardInterrupt:
                     pass
                 except BaseException, exc:
-                    component.error("Error in shutdown: %r", exc)
+                    component.error('Error in shutdown: %r', exc)
 
     def _component_shutdown(self, sender, **kwargs):
         self._components_shutdown[sender] = True
@@ -138,10 +138,10 @@ class Branch(gThread):
         if self.httpd:
             url, port = self.httpd.thread.url, self.httpd.thread.port
         port = self.httpd.thread.port if self.httpd else None
-        return {"id": self.id,
-                "loglevel": LOG_LEVELS[self.loglevel],
-                "numc": self.numc,
-                "sup_interval": self.supervisor.interval,
-                "logfile": self.logfile,
-                "port": port,
-                "url": url}
+        return {'id': self.id,
+                'loglevel': LOG_LEVELS[self.loglevel],
+                'numc': self.numc,
+                'sup_interval': self.supervisor.interval,
+                'logfile': self.logfile,
+                'port': port,
+                'url': url}

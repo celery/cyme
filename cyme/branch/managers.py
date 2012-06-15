@@ -11,8 +11,8 @@ from __future__ import absolute_import
 
 from .supervisor import supervisor as sup
 
-from ..models import Broker, Instance
-from ..utils import force_list
+from cyme.models import Broker, Instance
+from cyme.utils import force_list
 
 
 class LocalInstanceManager(object):

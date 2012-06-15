@@ -12,7 +12,7 @@ from __future__ import absolute_import
 
 from time import time
 
-from ..utils import cached_property, find_symbol
+from cyme.utils import cached_property, find_symbol
 
 
 class State(object):
@@ -31,6 +31,6 @@ class State(object):
 
     @cached_property
     def supervisor(self):
-        return find_symbol(self, ".supervisor.supervisor")
+        return find_symbol(self, '.supervisor.supervisor')
 
 state = State()

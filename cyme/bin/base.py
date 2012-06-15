@@ -8,7 +8,7 @@
 from __future__ import absolute_import
 from __future__ import with_statement
 
-from .. import __version__, DEBUG, DEBUG_BLOCK, DEBUG_READERS
+from cyme import __version__, DEBUG, DEBUG_BLOCK, DEBUG_READERS
 
 import django
 import getpass
@@ -19,7 +19,7 @@ from importlib import import_module
 
 from kombu.utils import cached_property
 
-from ..utils import Path
+from cyme.utils import Path
 
 
 class Env(object):
@@ -44,16 +44,16 @@ class Env(object):
         eventlet.monkey_patch()
         if DEBUG_READERS:
             eventlet.debug.hub_prevent_multiple_readers(False)
-            print("+++ MULTIPLE READERS ALLOWED +++")    # noqa+
+            print('+++ MULTIPLE READERS ALLOWED +++')    # noqa+
         if DEBUG_BLOCK:
             eventlet.debug.hub_blocking_detection(True)
-            print("+++ BLOCKING DETECTION ENABLED +++")  # noqa+
+            print('+++ BLOCKING DETECTION ENABLED +++')  # noqa+
 
     def configure(self):
         from django.conf import settings
-        from .. import settings as default_settings
-        from ..utils import imerge_settings
-        mod = os.environ.setdefault("DJANGO_SETTINGS_MODULE",
+        from cyme import settings as default_settings
+        from cyme.utils import imerge_settings
+        mod = os.environ.setdefault('DJANGO_SETTINGS_MODULE',
                                     default_settings.__name__)
 
         if not settings.configured:
@@ -67,7 +67,7 @@ class Env(object):
     def setup_pool_limit(self, **kwargs):
         from kombu import pools
         from celery import current_app as celery
-        limit = kwargs.get("limit", celery.conf.BROKER_POOL_LIMIT)
+        limit = kwargs.get('limit', celery.conf.BROKER_POOL_LIMIT)
         pools.set_limit(limit if self.needs_eventlet else 1)
         celery._pool = pools.connections[celery.broker_connection()]
 
@@ -75,12 +75,12 @@ class Env(object):
         from django.conf import settings
         from django.db.utils import DEFAULT_DB_ALIAS
         dbconf = settings.DATABASES[DEFAULT_DB_ALIAS]
-        if dbconf["ENGINE"] == "django.db.backends.sqlite3":
-            if Path(dbconf["NAME"]).absolute().exists():
+        if dbconf['ENGINE'] == 'django.db.backends.sqlite3':
+            if Path(dbconf['NAME']).absolute().exists():
                 return
         gp, getpass.getpass = getpass.getpass, getpass.fallback_getpass
         try:
-            self.management.call_command("syncdb", interactive=interactive)
+            self.management.call_command('syncdb', interactive=interactive)
         finally:
             getpass.getpass = gp
 
@@ -96,7 +96,7 @@ class BaseApp(object):
     instance_dir = None
 
     def get_version(self):
-        return "cyme v%s" % (__version__, )
+        return 'cyme v%s' % (__version__, )
 
     def run_from_argv(self, argv=None):
         argv = sys.argv if argv is None else argv
@@ -122,8 +122,8 @@ def app(**attrs):
         def run(self, *args, **kwargs):
             return fun(*args, **kwargs)
 
-        attrs = dict({"run": run, "__module__": fun.__module__,
-                      "__doc__": fun.__doc__}, **x)
+        attrs = dict({'run': run, '__module__': fun.__module__,
+                      '__doc__': fun.__doc__}, **x)
 
         return type(fun.__name__, (BaseApp, ), attrs)()
 

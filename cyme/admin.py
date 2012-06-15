@@ -16,61 +16,61 @@ from .models import Broker, Instance, Queue
 from .branch.supervisor import supervisor
 
 
-@display_field(_("max/min concurrency"), "max_concurrency")
+@display_field(_('max/min concurrency'), 'max_concurrency')
 def maxmin_concurrency(instance):
-    return "%s / %s" % (instance.max_concurrency, instance.min_concurrency)
+    return '%s / %s' % (instance.max_concurrency, instance.min_concurrency)
 
 
-@display_field(_("created"), "created_at")
+@display_field(_('created'), 'created_at')
 def created_at(instance):
     return """<div title="%s">%s</div>""" % (
                 escape(str(instance.created_at)),
                 escape(naturaldate(instance.created_at)))
 
 
-@display_field(_("status"), "is_enabled")
+@display_field(_('status'), 'is_enabled')
 def status(instance):
-    enabled = "Enabled" if instance.is_enabled else "Disabled"
+    enabled = 'Enabled' if instance.is_enabled else 'Disabled'
     if instance.alive():
-        state, color = "ONLINE", "green"
+        state, color = 'ONLINE', 'green'
     else:
-        state, color = "OFFLINE", "red"
+        state, color = 'OFFLINE', 'red'
     return """<b>%s (<span style="color: %s;">%s</span>)</b>""" % (
             enabled, color, state)
 
 
 class InstanceAdmin(admin.ModelAdmin):
-    detail_title = _("Instance detail")
-    list_page_title = _("Instances")
-    date_hierarchy = "created_at"
+    detail_title = _('Instance detail')
+    list_page_title = _('Instances')
+    date_hierarchy = 'created_at'
     fieldsets = (
             (None, {
-                "fields": ("name", "max_concurrency", "min_concurrency",
-                           "_queues", "is_enabled", "_broker"),
-                "classes": ("extrapretty", ),
+                'fields': ('name', 'max_concurrency', 'min_concurrency',
+                           '_queues', 'is_enabled', '_broker'),
+                'classes': ('extrapretty', ),
             }), )
-    list_display = (fixedwidth("name", pt=10), maxmin_concurrency,
-                    status, "broker")
-    read_only_fields = ("created_at", )
-    list_filter = ("name", "max_concurrency", "min_concurrency", "_queues")
-    search_fields = ("name", "max_concurrency", "min_concurrency", "_queues")
-    actions = ["disable_instances",
-               "enable_instances",
-               "restart_instances"]
+    list_display = (fixedwidth('name', pt=10), maxmin_concurrency,
+                    status, 'broker')
+    read_only_fields = ('created_at', )
+    list_filter = ('name', 'max_concurrency', 'min_concurrency', '_queues')
+    search_fields = ('name', 'max_concurrency', 'min_concurrency', '_queues')
+    actions = ['disable_instances',
+               'enable_instances',
+               'restart_instances']
 
-    @action(_("Disable selected instances"))
+    @action(_('Disable selected instances'))
     def disable_instances(self, request, queryset):
         for instance in queryset:
             instance.disable()
         supervisor.verify(queryset).wait()
 
-    @action(_("Enable selected instances"))
+    @action(_('Enable selected instances'))
     def enable_instances(self, request, queryset):
         for instance in queryset:
             instance.enable()
         supervisor.verify(queryset).wait()
 
-    @action(_("Restart selected instances"))
+    @action(_('Restart selected instances'))
     def restart_instances(self, request, queryset):
         supervisor.restart(queryset).wait()
 

@@ -21,10 +21,10 @@ class HttpServer(gThread):
     joinable = False
 
     def __init__(self, addrport=None):
-        host, port = addrport or ("", 8000)
-        if host == "localhost":
+        host, port = addrport or ('', 8000)
+        if host == 'localhost':
             # dnspython bug?
-            host = "127.0.0.1"
+            host = '127.0.0.1'
         self.host, self.port = self.addrport = (host, port)
         super(HttpServer, self).__init__()
 
@@ -37,13 +37,13 @@ class HttpServer(gThread):
         handler = AdminMediaHandler(djwsgi.WSGIHandler())
         sock = listen(self.addrport)
         g = self.spawn(self.server, sock, handler)
-        self.info("ready")
+        self.info('ready')
         httpd_ready.send(sender=self, addrport=self.addrport,
                          handler=handler, sock=sock)
         return g.wait()
 
     def _do_ping(self, timeout):
-        return get(self.url + "/ping/", timeout=timeout).ok
+        return get(self.url + '/ping/', timeout=timeout).ok
 
     def create_log(self):
         logger = self
@@ -62,7 +62,7 @@ class HttpServer(gThread):
         class HttpProtocol(wsgi.HttpProtocol):
 
             def get_format_args(self, format, *args):
-                return ["%s - - [%s] %s", self.address_string(),
+                return ['%s - - [%s] %s', self.address_string(),
                                           self.log_date_time_string(),
                                           format] + args
 
@@ -77,10 +77,10 @@ class HttpServer(gThread):
     @property
     def url(self):
         addr, port = self.addrport
-        if not addr or addr in ("0.0.0.0", ):
-            addr = "127.0.0.1"
-        return "http://%s:%s" % (addr, port)
+        if not addr or addr in ('0.0.0.0', ):
+            addr = '127.0.0.1'
+        return 'http://%s:%s' % (addr, port)
 
     @property
     def logger_name(self):
-        return "wsgi"
+        return 'wsgi'

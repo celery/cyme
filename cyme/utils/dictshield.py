@@ -7,7 +7,7 @@ class ListField(BaseField):
 
     def __init__(self, field, **kwargs):
         self.field = field
-        kwargs.setdefault("default", list)
+        kwargs.setdefault('default', list)
         super(ListField, self).__init__(**kwargs)
 
     def to_python(self, value):

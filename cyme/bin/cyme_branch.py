@@ -14,9 +14,9 @@ from .base import app
 
 @app(needs_eventlet=True)
 def cyme_branch(env, argv):
-    from ..management.commands import cyme_branch
-    cyme_branch.Command(env).run_from_argv([argv[0], "cyme-branch"] + argv[1:])
+    from cyme.management.commands import cyme_branch
+    cyme_branch.Command(env).run_from_argv([argv[0], 'cyme-branch'] + argv[1:])
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     cyme_branch()

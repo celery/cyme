@@ -22,9 +22,9 @@ from kombu.utils.encoding import safe_repr
 # Cross Origin Resource Sharing
 # See: http://www.w3.org/TR/cors/
 ACCESS_CONTROL = {
-        "Allow-Origin": "*",
-        "Allow-Methods": ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
-        "Max-Age": 86400,
+        'Allow-Origin': '*',
+        'Allow-Methods': ['GET', 'OPTIONS', 'POST', 'PUT', 'DELETE'],
+        'Max-Age': 86400,
 }
 
 
@@ -42,21 +42,21 @@ class HttpResponseNotImplemented(HttpResponse):
 def set_access_control_options(response, options=None):
     options = dict(ACCESS_CONTROL, **options or {})
     try:
-        options["Allow-Methods"] = ", ".join(options["Allow-Methods"] or [])
+        options['Allow-Methods'] = ', '.join(options['Allow-Methods'] or [])
     except KeyError:
         pass
 
     for key, value in ACCESS_CONTROL.iteritems():
-        response["Access-Control-%s" % (key, )] = value
+        response['Access-Control-%s' % (key, )] = value
 
 
 def JsonResponse(data, status=http.OK, access_control=None, **kwargs):
     """Returns a JSON encoded response."""
     if isinstance(data, (basestring, int, float, bool)):
-        data = {"ok": data}
+        data = {'ok': data}
     if data is None or not isinstance(data, (dict, list, tuple)):
         return data
-    kwargs.setdefault("content_type", "application/json")
+    kwargs.setdefault('content_type', 'application/json')
     response = HttpResponse(serialize(data),
                             status=status, **kwargs)
     set_access_control_options(response, access_control)
@@ -74,11 +74,11 @@ class ApiView(View):
     _semipredicate = object()
 
     def dispatch(self, request, *args, **kwargs):
-        self.nowait = kwargs.get("nowait", False)
-        if request.method.lower() == "get":
-            kwargs.pop("nowait", None)
+        self.nowait = kwargs.get('nowait', False)
+        if request.method.lower() == 'get':
+            kwargs.pop('nowait', None)
             if self.nowait:
-                return self.NotImplemented("Operation can't be async.")
+                return self.NotImplemented('Operation cannot be async.')
         try:
             data = super(ApiView, self).dispatch(request, *args, **kwargs)
         except NoRouteError:
@@ -86,8 +86,8 @@ class ApiView(View):
         except NoReplyError:
             return HttpResponseTimeout()
         except Exception, exc:
-            return Error({"nok": [safe_repr(exc),
-                                  "".join(format_exception(*sys.exc_info()))]})
+            return Error({'nok': [safe_repr(exc),
+                                  ''.join(format_exception(*sys.exc_info()))]})
         return self.Response(data)
 
     def Response(self, *args, **kwargs):
@@ -98,13 +98,13 @@ class ApiView(View):
 
     def Ok(self, data, *args, **kwargs):
         if self.nowait:
-            data = data or {"ok": "operation scheduled"}
+            data = data or {'ok': 'operation scheduled'}
             return self.Accepted(data, **kwargs)
         return self.Response(data, *args, **kwargs)
 
     def Created(self, data, *args, **kwargs):
         if self.nowait:
-            data = data or {"ok": "operation scheduled"}
+            data = data or {'ok': 'operation scheduled'}
             return self.Accepted(data, **kwargs)
         return Created(data, *args, **kwargs)
 
@@ -134,5 +134,5 @@ class ApiView(View):
 
 
 def simple_get(fun):
-    return type(fun.__name__, (ApiView, ), {"get": fun,
-                    "__module__": fun.__module__, "__doc__": fun.__doc__})
+    return type(fun.__name__, (ApiView, ), {'get': fun,
+                    '__module__': fun.__module__, '__doc__': fun.__doc__})

@@ -15,10 +15,10 @@ from requests import request
 from . import __version__
 
 #: Cyme User Agent string.
-UA = "Celery/cyme v%s" % (__version__, )
+UA = 'Celery/cyme v%s' % (__version__, )
 
 #: Default HTTP headers to pass to the dispatched request.
-DEFAULT_HEADERS = {"User-Agent": UA}
+DEFAULT_HEADERS = {'User-Agent': UA}
 
 
 def response_to_dict(r):
@@ -27,8 +27,8 @@ def response_to_dict(r):
 
 
 @task(timeout=60)
-def webhook(url, method="GET", params={}, data={}, headers=None, **kwargs):
-    kwargs["timeout"] = kwargs.get("timeout", webhook.timeout)
+def webhook(url, method='GET', params={}, data={}, headers=None, **kwargs):
+    kwargs['timeout'] = kwargs.get('timeout', webhook.timeout)
     headers = {} if headers is None else headers
     return response_to_dict(request(method, url, params=params, data=data,
                                     headers=dict(headers, **DEFAULT_HEADERS)))

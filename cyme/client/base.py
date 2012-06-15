@@ -10,8 +10,8 @@ from urllib import quote
 from celery.datastructures import AttributeDict
 from dictshield.document import Document
 
-from .. import __version__, DEBUG
-from ..utils import cached_property
+from cyme import __version__, DEBUG
+from cyme.utils import cached_property
 
 
 class Path(object):
@@ -19,7 +19,7 @@ class Path(object):
     def __init__(self, s=None, stack=None):
         self.stack = (stack or []) + (s.stack if isinstance(s, Path) else [s])
 
-    def __str__(self, s="/"):
+    def __str__(self, s='/'):
         return (s + s.join(map(quote, filter(None, self.stack))).strip(s) + s)
 
     def __div__(self, other):
@@ -48,7 +48,7 @@ class Base(object):
 
     def maybe_async(self, name, nowait):
         if nowait:
-            return Path("!") / name
+            return Path('!') / name
         return name
 
 
@@ -71,7 +71,7 @@ class Section(Base):
     Model = Model
     name = None
     path = None
-    proxy = ["GET", "POST", "PUT", "DELETE"]
+    proxy = ['GET', 'POST', 'PUT', 'DELETE']
 
     def __init__(self, client):
         self.client = client
@@ -109,7 +109,7 @@ class Section(Base):
 
     def maybe_async(self, name, nowait):
         if nowait:
-            return self.path / "!" / name
+            return self.path / '!' / name
         return self.path / name
 
     def __repr__(self):
@@ -117,36 +117,36 @@ class Section(Base):
 
 
 class Client(Base):
-    default_url = "http://127.0.0.1:8000"
+    default_url = 'http://127.0.0.1:8000'
 
     def __init__(self, url=None):
-        self.url = url.rstrip("/") if url else self.default_url
+        self.url = url.rstrip('/') if url else self.default_url
 
     def GET(self, path, params=None, type=None):
-        return self.request("GET", path, params, None, type)
+        return self.request('GET', path, params, None, type)
 
     def PUT(self, path, params=None, data=None, type=None):
-        return self.request("PUT", path, params, data, type)
+        return self.request('PUT', path, params, data, type)
 
     def POST(self, path, params=None, data=None, type=None):
-        return self.request("POST", path, params, data, type)
+        return self.request('POST', path, params, data, type)
 
     def DELETE(self, path, params=None, data=None, type=None):
-        return self.request("DELETE", path, params, data, type)
+        return self.request('DELETE', path, params, data, type)
 
     def request(self, method, path, params=None, data=None, type=None):
         return self._request(method, self.build_url(path), params, data, type)
 
     def _prepare(self, d):
         if d:
-            return dict((key, value if value is not None else "")
+            return dict((key, value if value is not None else '')
                             for key, value in d.iteritems())
 
     def _request(self, method, url, params=None, data=None, type=None):
         data = self._prepare(data)
         params = self._prepare(params)
         if DEBUG:
-            print("<REQ> %s %r data=%r params=%r" % (method, url,  # noqa+
+            print('<REQ> %s %r data=%r params=%r' % (method, url,  # noqa+
                                                      data, params))
         type = type or AttributeDict
         r = requests.request(method, str(url),
@@ -154,7 +154,7 @@ class Client(Base):
                              params=params, data=data)
         data = None
         if DEBUG:
-            print("<RES> %r" % (r.text, ))  # noqa+
+            print('<RES> %r' % (r.text, ))  # noqa+
         if r.ok:
             ret = self.deserialize(r.text)
             if isinstance(ret, dict):
@@ -164,13 +164,13 @@ class Client(Base):
 
     def root(self, method, path=None, params=None, data=None):
         return self._request(method,
-                             self.url + str(Path(path) if path else ""),
+                             self.url + str(Path(path) if path else ''),
                              params, data)
 
     def __repr__(self):
-        return "<Client: %r>" % (self.url, )
+        return '<Client: %r>' % (self.url, )
 
     @cached_property
     def headers(self):
-        return {"Accept": "application/json",
-                "User-Agent": "cyme-client:py %r" % (__version__, )}
+        return {'Accept': 'application/json',
+                'User-Agent': 'cyme-client:py %r' % (__version__, )}

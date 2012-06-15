@@ -5,18 +5,18 @@
 Branches
 ~~~~~~~~
 
-   >>> client = Client("http://localhost:8000")
+   >>> client = Client('http://localhost:8000')
    >>> client.branches
-   ["cyme1.example.com", "cyme2.example.com"]
+   ['cyme1.example.com', 'cyme2.example.com']
 
-   >>> client.branch_info("cyme1.example.com")
+   >>> client.branch_info('cyme1.example.com')
    {'sup_interval': 5, 'numc': 2, 'loglevel': 'INFO',
     'logfile': None, 'id': 'cyme1.example.com', 'port': 8000}
 
 Applications
 ~~~~~~~~~~~~
 
-    >>> app = client.get("foo")
+    >>> app = client.get('foo')
     >>> app
     <Client: 'http://localhost:8016/foo'>
     >>> app.info
@@ -25,9 +25,9 @@ Applications
 Queues
 ~~~~~~
 
-    >>> app.queues.add("myqueue", exchange="myex", routing_key="x")
+    >>> app.queues.add('myqueue', exchange='myex', routing_key='x')
     >>> <Queue: u'myqueue'>
-    >>> my_queue = app.queues.get("my_queue")
+    >>> my_queue = app.queues.get('my_queue')
 
     >>> app.queues
     [<Queue: u'myqueue'>]
@@ -78,10 +78,10 @@ Consumers
 ~~~~~~~~~
 
     >>> instance.consumers.add(my_queue)
-    {"ok": "ok"}
+    {'ok': 'ok'}
 
     >>> instance_consumers.delete(my_queue)
-    {"ok": "ok"}
+    {'ok': 'ok'}
 
     >>> instance.consumers
     #... consumers with full declarations ...
@@ -109,8 +109,8 @@ from dictshield import fields
 
 from . import base
 from .base import Path
-from ..utils import cached_property
-from ..utils.dictshield import ListField
+from cyme.utils import cached_property
+from cyme.utils.dictshield import ListField
 
 # XXX `requests` does not currently seem to support using the
 #     data argument with PUT requests.
@@ -128,7 +128,7 @@ class Instance(base.Model):
     extra_config = fields.StringField(max_length=200)
 
     def __repr__(self):
-        return "<Instance: %r>" % (self.name, )
+        return '<Instance: %r>' % (self.name, )
 
 
 class Queue(base.Model):
@@ -139,11 +139,11 @@ class Queue(base.Model):
     options = fields.StringField(max_length=None)
 
     def __repr__(self):
-        return "<Queue: %r>" % (self.name, )
+        return '<Queue: %r>' % (self.name, )
 
 
 class Client(base.Client):
-    app = "cyme"
+    app = 'cyme'
 
     class Instances(base.Section):
 
@@ -153,7 +153,7 @@ class Client(base.Client):
 
                 def __init__(self, client, name):
                     base.Section.__init__(self, client)
-                    self.path = self.client.path / name / "queues"
+                    self.path = self.client.path / name / 'queues'
 
                 def create_model(self, data, *args, **kwargs):
                     return data
@@ -212,14 +212,14 @@ class Client(base.Client):
                                     extra_config=config)
 
         def stats(self, name):
-            return self.GET(self.path / name / "stats")
+            return self.GET(self.path / name / 'stats')
 
         def autoscale(self, name, max=None, min=None):
-            return self.POST(self.path / name / "autoscale",
-                             params={"max": max, "min": min})
+            return self.POST(self.path / name / 'autoscale',
+                             params={'max': max, 'min': min})
 
         def create_model(self, data, *args, **kwargs):
-            data["queue_names"] = data.pop("queues", None)
+            data['queue_names'] = data.pop('queues', None)
             return base.Section.create_model(self, data, *args, **kwargs)
 
     class Queues(base.Section):
@@ -245,32 +245,32 @@ class Client(base.Client):
 
     def add(self, name, broker=None, arguments=None, extra_config=None,
             nowait=False):
-        return self.create_model(name, self.root("POST",
+        return self.create_model(name, self.root('POST',
                                  self.maybe_async(name, nowait),
-                                 data={"broker": broker,
-                                       "arguments": arguments,
-                                       "extra_config": extra_config}))
+                                 data={'broker': broker,
+                                       'arguments': arguments,
+                                       'extra_config': extra_config}))
 
     def get(self, name=None):
-        return self.create_model(name, self.root("GET", name or self.app))
+        return self.create_model(name, self.root('GET', name or self.app))
 
     def delete(self, name=None):
-        return self.root("DELETE", name or self.app)
+        return self.root('DELETE', name or self.app)
 
     @property
     def branches(self):
-        return self.root("GET", "branches")
+        return self.root('GET', 'branches')
 
     def branch_info(self, id):
-        return self.root("GET", Path("branches") / id)
+        return self.root('GET', Path('branches') / id)
 
     def all(self):
-        return self.root("GET")
+        return self.root('GET')
 
     def build_url(self, path):
         url = self.url
         if self.app:
-            url += "/" + self.app
+            url += '/' + self.app
         return url + str(path)
 
     def create_model(self, name, info):
@@ -282,5 +282,5 @@ class Client(base.Client):
     def __repr__(self):
         url = self.build_url('')
         if self.app:
-            return "<App: %r>" % url
-        return "<Client: %r>" % url
+            return '<App: %r>' % url
+        return '<Client: %r>' % url

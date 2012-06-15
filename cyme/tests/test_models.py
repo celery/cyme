@@ -9,11 +9,11 @@ from cyme.models import Instance, Queue
 class test_Queue(unittest.TestCase):
 
     def test__unicode__(self):
-        self.assertTrue(unicode(Queue(name="foo")))
+        self.assertTrue(unicode(Queue(name='foo')))
 
     def test_enabled(self):
-        q1 = Queue.objects.add("foo", options={"x": 1})
-        q2 = Queue.objects.add("bar")
+        q1 = Queue.objects.add('foo', options={'x': 1})
+        q2 = Queue.objects.add('bar')
         q2.is_enabled = False
         q2.save()
 
@@ -34,7 +34,7 @@ class test_Instance(unittest.TestCase):
         Instance.objects.all().delete()
 
     def test__unicode__(self):
-        self.assertTrue(unicode(Instance(name="foo")))
+        self.assertTrue(unicode(Instance(name='foo')))
 
     def test_add(self):
         n1 = Instance.objects.add()
@@ -46,8 +46,8 @@ class test_Instance(unittest.TestCase):
         self.assertTrue(n1.argv)
         self.assertIsNone(n1.getpid())
 
-        n2 = Instance.objects.add("foo")
-        self.assertEqual(n2.name, "foo")
+        n2 = Instance.objects.add('foo')
+        self.assertEqual(n2.name, 'foo')
 
         n1.disable()
         self.assertFalse(Instance.objects.get(name=n1.name).is_enabled)
@@ -62,16 +62,16 @@ class test_Instance(unittest.TestCase):
 
     def test_add_cancel_queue(self):
         n = Instance.objects.add()
-        q = Queue.objects.create(name="xiziasd")
+        q = Queue.objects.create(name='xiziasd')
         q.save()
 
         n.add_queue(q)
-        n._query.assert_called_with("add_consumer", dict(queue=q.name,
+        n._query.assert_called_with('add_consumer', dict(queue=q.name,
                                     exchange=q.name, routing_key=q.name,
                                     exchange_type=None))
 
         n.cancel_queue(q)
-        n._query.assert_called_with("cancel_consumer", dict(queue=q.name))
+        n._query.assert_called_with('cancel_consumer', dict(queue=q.name))
 
     def test_objects(self):
         n = Instance.objects.add()
@@ -80,9 +80,9 @@ class test_Instance(unittest.TestCase):
         Instance.objects.remove(n)
 
     def test_with_queues(self):
-        Instance.objects.add(queues="foo,bar,baz")
-        Instance.objects.add_queue("foo")
-        Instance.objects.add_queue("xaz")
+        Instance.objects.add(queues='foo,bar,baz')
+        Instance.objects.add_queue('foo')
+        Instance.objects.add_queue('xaz')
 
-        Instance.objects.remove_queue("foo")
-        Instance.objects.remove_queue("xaz")
+        Instance.objects.remove_queue('foo')
+        Instance.objects.remove_queue('xaz')

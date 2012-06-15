@@ -20,13 +20,13 @@ def get_branches(broker=None, limit=None):
 
 @app()
 def main(env, argv):
-    opts = dict(arg.split("=", 1)
-                    for arg in argv[1:] if arg.startswith("--"))
-    print(anyjson.serialize(get_branches(opts.get("--broker"),
-                                         opts.get("--limit"))))
+    opts = dict(arg.split('=', 1)
+                    for arg in argv[1:] if arg.startswith('--'))
+    print(anyjson.serialize(get_branches(opts.get('--broker'),
+                                         opts.get('--limit'))))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
 
 

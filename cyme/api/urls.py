@@ -15,8 +15,8 @@ admin.autodiscover()
 
 
 def _o_(u):
-    return (u.replace("APP", uApp)
-             .replace("!", uNowait))
+    return (u.replace('APP', uApp)
+             .replace('!', uNowait))
 
 urlpatterns = patterns('',
     (r'^ping/$', views.ping.as_view()),

@@ -11,7 +11,7 @@ from celery.utils.dispatch import Signal
 #:     :addrport: the ``(hostname, port)`` tuple.
 #:     :handler: the WSGI handler used.
 #:     :sock: the socket used.
-httpd_ready = Signal(providing_args=["addrport", "handler", "sock"])
+httpd_ready = Signal(providing_args=['addrport', 'handler', 'sock'])
 
 #: Sent when the supervisor is ready.
 #: Arguments:
@@ -39,7 +39,7 @@ branch_shutdown_request = Signal()
 
 
 thread_pre_shutdown = Signal()
-thread_pre_join = Signal(providing_args=["timeout"])
+thread_pre_join = Signal(providing_args=['timeout'])
 thread_exit = Signal()
 thread_post_join = Signal()
 thread_post_shutdown = Signal()
