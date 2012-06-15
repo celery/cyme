@@ -3,7 +3,6 @@ from __future__ import absolute_import
 
 from .base import app
 
-import sys
 import anyjson
 
 
@@ -28,5 +27,3 @@ def main(env, argv):
 
 if __name__ == '__main__':
     main()
-
-

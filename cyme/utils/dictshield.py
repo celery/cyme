@@ -23,7 +23,6 @@ class ListField(BaseField):
     def owner_document(self):
         return self._owner_document
 
-    @owner_document.setter
+    @owner_document.setter  # noqa
     def owner_document(self, d):  # noqa
         self._owner_document = self.field.owner_document = d
-
