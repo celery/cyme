@@ -12,7 +12,7 @@ import logging
 
 from celery import current_app as celery
 from celery.utils import LOG_LEVELS, term
-from cl.g import Event
+from cell.g import Event
 from kombu.log import LogMixin
 from kombu.utils import gen_unique_id
 

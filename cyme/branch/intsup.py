@@ -9,7 +9,7 @@ from __future__ import absolute_import, with_statement
 from os import _exit
 from time import sleep
 
-from cl.g import Event
+from cell.g import Event
 
 from .thread import gThread
 

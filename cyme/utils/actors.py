@@ -2,8 +2,8 @@ from __future__ import absolute_import
 
 from celery.app import app_or_default
 
-import cl
-import cl.presence
+import cell
+import cell.presence
 
 
 def construct(cls, instance, connection=None, *args, **kwargs):
@@ -12,19 +12,19 @@ def construct(cls, instance, connection=None, *args, **kwargs):
                                   *args, **kwargs)
 
 
-class Actor(cl.Actor):
+class Actor(cell.Actor):
 
     def __init__(self, *args, **kwargs):
         construct(Actor, self, *args, **kwargs)
 
 
-class Agent(cl.Agent):
+class Agent(cell.Agent):
 
     def __init__(self, *args, **kwargs):
         construct(Agent, self, *args, **kwargs)
 
 
-class AwareAgent(cl.presence.AwareAgent):
+class AwareAgent(cell.presence.AwareAgent):
 
     def __init__(self, *args, **kwargs):
         construct(AwareAgent, self, *args, **kwargs)

@@ -57,7 +57,7 @@ from celery.bin.base import daemon_options
 from celery.platforms import (create_pidlock, detached,
                               signals, set_process_title)
 from celery.utils import instantiate
-from cl.utils import cached_property, shortuuid
+from cell.utils import cached_property, shortuuid
 
 from .base import CymeCommand, Option
 

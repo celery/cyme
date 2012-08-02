@@ -16,7 +16,7 @@ from django.http import HttpResponse, HttpResponseNotFound
 from django.views.generic.base import View
 
 from anyjson import serialize
-from cl.exceptions import NoReplyError, NoRouteError
+from cell.exceptions import NoReplyError, NoRouteError
 from kombu.utils.encoding import safe_repr
 
 # Cross Origin Resource Sharing

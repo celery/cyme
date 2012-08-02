@@ -1,4 +1,4 @@
-cl
+cell
 eventlet
 dnspython
 django

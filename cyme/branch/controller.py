@@ -8,8 +8,8 @@ from __future__ import absolute_import
 
 from functools import partial
 
-from cl.presence import AwareActorMixin, announce_after
-from cl.utils import flatten, first_or_raise, shortuuid
+from cell.presence import AwareActorMixin, announce_after
+from cell.utils import flatten, first_or_raise, shortuuid
 from celery import current_app as celery
 from kombu import Exchange
 from kombu.common import uuid

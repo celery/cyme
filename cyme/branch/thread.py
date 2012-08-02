@@ -11,7 +11,7 @@ import os
 
 from Queue import Empty
 
-from cl.g import Event, spawn, timer, Queue
+from cell.g import Event, spawn, timer, Queue
 from kombu.log import LogMixin
 from eventlet import Timeout
 

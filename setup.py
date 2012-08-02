@@ -120,7 +120,7 @@ setup(
     data_files=data_files,
     zip_safe=False,
     install_requires=[
-        "cl",
+        "cell",
         "eventlet",
         "dnspython",
         "Django",
