@@ -48,7 +48,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Cyme'
-copyright = u'2011, VMware, Inc.'
+copyright = u'2011-2013, Ask Solem. All Rights Reserved'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -82,7 +82,7 @@ html_use_index = True
 
 latex_documents = [
   ('index', 'cyme.tex', ur'Cyme Documentation',
-   ur'VMWare, Inc.', 'manual'),
+   ur'Ask Solem', 'manual'),
 ]
 
 html_show_sphinx = False
