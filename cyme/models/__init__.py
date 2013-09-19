@@ -16,7 +16,7 @@ from celery import platforms
 from celery.bin.celeryd_multi import MultiTool
 from celery.utils.encoding import safe_str
 from eventlet import Timeout
-from kombu.log import anon_logger
+from kombu.log import get_logger
 from kombu.pools import connections, producers
 
 from django.db import models
@@ -25,7 +25,7 @@ from django.utils.translation import ugettext_lazy as _
 from . import managers
 from cyme.utils import cached_property, find_symbol
 
-logger = anon_logger('Instance')
+logger = get_logger('Instance')
 
 
 def shsplit(s):
