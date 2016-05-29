@@ -88,8 +88,8 @@ latex_documents = [
 html_show_sphinx = False
 intersphinx_mapping = {
         "http://docs.python.org/dev": None,
-        "http://kombu.readthedocs.org/en/latest/": None,
-        "http://django-celery.readthedocs.org/en/latest": None,
+        "https://kombu.readthedocs.io/en/latest/": None,
+        "https://django-celery.readthedocs.io/en/latest": None,
 }
 
 html_theme = "celery"
