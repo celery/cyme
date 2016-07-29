@@ -28,7 +28,7 @@ DATABASES = {'default': {
 
 # URL and file paths.
 SITE_ID = 1
-STATIC_URL = '/static'
+STATIC_URL = '/static/'
 ADMIN_MEDIA_PREFIX = '/adminstatic/'
 TEMPLATE_LOADERS = (
     ('django.template.loaders.cached.Loader', (

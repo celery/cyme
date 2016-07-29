@@ -1,7 +1,7 @@
 cell
 eventlet
 dnspython
-django
+django<1.6
 django-celery
 requests
 dictshield
