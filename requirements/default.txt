@@ -3,6 +3,8 @@ eventlet
 dnspython
 django<1.6
 django-celery
+celery<4
+vine
 requests
 dictshield
 progressbar
