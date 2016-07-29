@@ -2,7 +2,7 @@ cell
 eventlet
 dnspython
 django<1.6
-django-celery
+django-celery<3.1
 celery<4
 vine
 requests
