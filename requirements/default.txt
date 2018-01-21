@@ -1,8 +1,10 @@
 cell
 eventlet
 dnspython
-django
-django-celery
+django<1.6
+django-celery<3.1
+celery<4
+vine
 requests
 dictshield
 progressbar

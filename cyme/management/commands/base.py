@@ -38,6 +38,7 @@ class CymeCommand(CeleryCommand):
             env = instantiate('cyme.bin.base.Env')
             self.setup_default_env(env)
         self.env = env
+        super(CymeCommand, self).__init__(*args, **kwargs)
 
     def setup_default_env(self, env):
         pass
